@@ -24,6 +24,7 @@ import { transactionRealtimeService } from "@/services/transactionRealtimeServic
 import { useSettings } from "@/hooks/useSettings";
 import { authService } from "@/services/authService";
 import { DataMaintenance } from "@/components/settings/data-maintenance";
+import { NotificationPreferences } from "@/components/settings/notification-preferences";
 
 export default function SettingsPage() {
   const { settings, updateSetting } = useSettings();
@@ -353,6 +354,8 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
+        <NotificationPreferences />
+
         <Card className="border-slate-200 bg-white backdrop-blur-xl md:col-span-2">
           <CardHeader className="border-b border-slate-200 pb-4">
             <CardTitle className="text-lg font-bold text-slate-950 flex items-center gap-2">
@@ -395,36 +398,6 @@ export default function SettingsPage() {
               </select>
             </div>
             
-            <div className="flex justify-between items-center py-2 border-b border-slate-200/40">
-              <div>
-                <p className="text-sm font-medium text-slate-700">Enable Realtime Notification</p>
-                <p className="text-xs text-slate-500">Menerima notifikasi langsung di header</p>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  className="sr-only peer" 
-                  checked={settings.notificationEnabled}
-                  onChange={(e) => updateSetting("notificationEnabled", e.target.checked)}
-                />
-                <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-              </label>
-            </div>
-            <div className="flex justify-between items-center py-2">
-              <div>
-                <p className="text-sm font-medium text-slate-700">Sound Alert</p>
-                <p className="text-xs text-slate-500">Bunyi notifikasi (beep) saat ada aktivitas baru</p>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  className="sr-only peer" 
-                  checked={settings.soundAlert}
-                  onChange={(e) => updateSetting("soundAlert", e.target.checked)}
-                />
-                <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-              </label>
-            </div>
           </CardContent>
         </Card>
       </div>

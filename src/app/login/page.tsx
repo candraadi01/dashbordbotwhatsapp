@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { Bot, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
@@ -36,13 +37,20 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="flex min-h-screen flex-col justify-center bg-[radial-gradient(circle_at_top,_#e0e7ff_0,_#f8fafc_44%)] px-4 py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md flex flex-col items-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-600 shadow-lg shadow-indigo-600/20 mb-4">
-          <Bot className="h-10 w-10 text-slate-950" />
+        <div className="relative mb-4 h-20 w-20 overflow-hidden rounded-[1.6rem] bg-white shadow-xl shadow-indigo-600/15 ring-1 ring-indigo-100">
+          <Image
+            src="/brand/candra-bot-logo.png"
+            alt="Logo CANDRA BOT"
+            fill
+            sizes="80px"
+            className="object-contain p-1.5"
+            priority
+          />
         </div>
         <h2 className="text-center text-3xl font-bold tracking-tight text-slate-950">
-          CANDRA ADMIN
+          CANDRA BOT
         </h2>
         <p className="mt-2 text-center text-sm text-slate-400">
           Masuk ke sistem dashboard admin Anda

@@ -1,14 +1,25 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
-import { Bell, Check, Clock, Package, ShoppingCart } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import {
+  Bell,
+  Check,
+  CheckCircle2,
+  Clock,
+  Clock3,
+  ShoppingCart,
+  XCircle,
+} from "lucide-react";
 import { transactionRealtimeService } from "@/services/transactionRealtimeService";
 import { useSettings } from "@/hooks/useSettings";
-import { supabase } from "@/lib/supabase";
+import { playNotificationSound } from "@/lib/notificationSound";
+import { TransactionRow } from "@/types";
+import { cn } from "@/lib/utils";
 
 export interface AppNotification {
   id: string;
   type: "INSERT" | "UPDATE";
+  status?: TransactionRow["status"];
   title: string;
   message: string;
   time: Date;
@@ -18,13 +29,13 @@ export interface AppNotification {
 export function NotificationCenter() {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
   const { settings, isLoaded } = useSettings();
   const dropdownRef = useRef<HTMLDivElement>(null);
-
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const recentEventsRef = useRef<Map<string, number>>(new Map());
+  const unreadCount = notifications.filter((notification) => !notification.read).length;
 
   useEffect(() => {
-    // Click outside to close
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsOpen(false);
@@ -35,77 +46,89 @@ export function NotificationCenter() {
   }, []);
 
   useEffect(() => {
+    if (!isOpen) return;
+    setCurrentTime(Date.now());
+    const interval = window.setInterval(() => setCurrentTime(Date.now()), 30_000);
+    return () => window.clearInterval(interval);
+  }, [isOpen]);
+
+  useEffect(() => {
     if (!isLoaded || !settings.notificationEnabled) return;
 
     const channel = transactionRealtimeService.subscribeTransactions((payload) => {
       const isInsert = payload.eventType === "INSERT";
       const isUpdate = payload.eventType === "UPDATE";
-      
-      if (isInsert || isUpdate) {
-         
-        const data = payload.new as any;
-        
-        let title = "";
-        let message = "";
-        
-        if (isInsert) {
-          title = "Transaksi Baru";
-          message = `${data.customer_name || "Customer"} memesan ${data.product_name || "Produk"}`;
-        } else if (isUpdate) {
-          title = "Perubahan Status";
-          message = `Status pesanan ${data.customer_name || "Customer"} menjadi ${data.status}`;
-        }
+      if (!isInsert && !isUpdate) return;
 
-        const newNotif: AppNotification = {
-          id: Math.random().toString(36).substring(2, 9),
-          type: isInsert ? "INSERT" : "UPDATE",
-          title,
-          message,
-          time: new Date(),
-          read: false,
-        };
+      const data = payload.new as TransactionRow;
+      const oldData = payload.old as Partial<TransactionRow>;
+      const status = data.status;
 
-        setNotifications((prev) => [newNotif, ...prev].slice(0, 20));
+      if (isInsert && !settings.notificationNewTransaction) return;
+      if (isUpdate) {
+        if (oldData.status === status) return;
+        if (status === "success" && !settings.notificationStatusSuccess) return;
+        if (status === "pending" && !settings.notificationStatusPending) return;
+        if (status === "cancelled" && !settings.notificationStatusCancelled) return;
+      }
 
-        if (settings.soundAlert) {
-          playAlertSound();
-        }
+      const eventKey = `${payload.eventType}:${data.id}:${status}:${data.updated_at}`;
+      const now = Date.now();
+      const lastSeen = recentEventsRef.current.get(eventKey);
+      if (lastSeen && now - lastSeen < 10_000) return;
+      recentEventsRef.current.set(eventKey, now);
+      for (const [key, timestamp] of recentEventsRef.current) {
+        if (now - timestamp > 60_000) recentEventsRef.current.delete(key);
+      }
+
+      const transactionId = data.transaction_id || data.id.slice(0, 8).toUpperCase();
+      const customer = data.customer_name || "Customer";
+      const product = data.product_name || "Produk";
+      const statusLabel = status === "success" ? "Berhasil" : status === "cancelled" ? "Gagal" : "Pending";
+
+      const nextNotification: AppNotification = {
+        id: eventKey,
+        type: isInsert ? "INSERT" : "UPDATE",
+        status: isUpdate ? status : undefined,
+        title: isInsert ? "Transaksi baru" : `Status ${statusLabel}`,
+        message: isInsert
+          ? `${customer} memesan ${product} · ${transactionId}`
+          : `Pesanan ${transactionId} milik ${customer} menjadi ${statusLabel}.`,
+        time: new Date(),
+        read: false,
+      };
+
+      setNotifications((previous) => [nextNotification, ...previous].slice(0, 30));
+      if (settings.soundAlert && settings.notificationSound !== "silent") {
+        void playNotificationSound(
+          settings.notificationSound,
+          settings.notificationVolume,
+          settings.customNotificationAudio
+        ).catch((error) => console.warn("Could not play notification sound", error));
       }
     });
 
-    return () => {
-      transactionRealtimeService.unsubscribe(channel);
-    };
-  }, [isLoaded, settings.notificationEnabled, settings.soundAlert]);
-
-  const playAlertSound = () => {
-    try {
-      // Basic beep using web audio api
-       
-      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const osc = ctx.createOscillator();
-      const gainNode = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(880, ctx.currentTime); // A5
-      gainNode.gain.setValueAtTime(0.1, ctx.currentTime);
-      osc.connect(gainNode);
-      gainNode.connect(ctx.destination);
-      osc.start();
-      setTimeout(() => {
-        osc.stop();
-        ctx.close();
-      }, 150);
-    } catch (e) {
-      console.warn("Could not play sound", e);
-    }
-  };
+    return () => transactionRealtimeService.unsubscribe(channel);
+  }, [
+    isLoaded,
+    settings.notificationEnabled,
+    settings.notificationNewTransaction,
+    settings.notificationStatusSuccess,
+    settings.notificationStatusPending,
+    settings.notificationStatusCancelled,
+    settings.soundAlert,
+    settings.notificationSound,
+    settings.notificationVolume,
+    settings.customNotificationAudio,
+  ]);
 
   const markAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    setNotifications((previous) => previous.map((notification) => ({ ...notification, read: true })));
   };
 
   const getTimeAgo = (date: Date) => {
-    const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
+    if (!currentTime) return "Baru saja";
+    const seconds = Math.floor((currentTime - date.getTime()) / 1000);
     if (seconds < 60) return "Baru saja";
     const minutes = Math.floor(seconds / 60);
     if (minutes < 60) return `${minutes} mnt lalu`;
@@ -114,72 +137,94 @@ export function NotificationCenter() {
     return date.toLocaleDateString("id-ID");
   };
 
+  const notificationIcon = (notification: AppNotification) => {
+    if (notification.type === "INSERT") {
+      return { icon: ShoppingCart, style: "border-indigo-200 bg-indigo-50 text-indigo-600" };
+    }
+    if (notification.status === "success") {
+      return { icon: CheckCircle2, style: "border-emerald-200 bg-emerald-50 text-emerald-600" };
+    }
+    if (notification.status === "cancelled") {
+      return { icon: XCircle, style: "border-rose-200 bg-rose-50 text-rose-600" };
+    }
+    return { icon: Clock3, style: "border-amber-200 bg-amber-50 text-amber-600" };
+  };
+
   return (
     <div className="relative" ref={dropdownRef}>
       <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 rounded-full hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-950"
+        type="button"
+        onClick={() => setIsOpen((value) => !value)}
+        className="relative grid h-11 w-11 place-items-center rounded-xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-950 active:scale-95"
+        aria-label={`Notifikasi${unreadCount ? `, ${unreadCount} belum dibaca` : ""}`}
+        aria-expanded={isOpen}
       >
         <Bell className="h-5 w-5" />
         {unreadCount > 0 && (
-          <span className="absolute top-1.5 right-1.5 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-slate-900 border border-slate-900 animate-pulse"></span>
+          <span className="absolute right-1.5 top-1.5 grid min-h-4 min-w-4 place-items-center rounded-full bg-rose-500 px-1 text-[9px] font-black leading-none text-white ring-2 ring-white">
+            {unreadCount > 9 ? "9+" : unreadCount}
+          </span>
         )}
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-slate-50">
-            <h3 className="font-semibold text-slate-950 text-sm">Notifications</h3>
+        <div className="fixed inset-x-3 top-[4.5rem] z-[65] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl animate-in fade-in slide-in-from-top-2 sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-96">
+          <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-3">
+            <div>
+              <h3 className="text-sm font-black text-slate-950">Notifikasi</h3>
+              <p className="text-[11px] font-medium text-slate-500">Aktivitas transaksi secara realtime</p>
+            </div>
             {unreadCount > 0 && (
               <button
+                type="button"
                 onClick={markAllAsRead}
-                className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition-colors"
+                className="flex min-h-10 items-center gap-1.5 rounded-lg px-2 text-xs font-bold text-indigo-600 transition hover:bg-indigo-50"
               >
-                <Check className="h-3 w-3" /> Mark all read
+                <Check className="h-3.5 w-3.5" /> Tandai dibaca
               </button>
             )}
           </div>
-          
-          <div className="max-h-96 overflow-y-auto">
+
+          <div className="max-h-[min(65vh,420px)] overflow-y-auto overscroll-contain">
             {notifications.length === 0 ? (
-              <div className="px-4 py-8 text-center text-slate-500 text-sm">
-                Belum ada notifikasi baru
+              <div className="px-5 py-10 text-center">
+                <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-slate-100 text-slate-400">
+                  <Bell className="h-5 w-5" />
+                </span>
+                <p className="mt-3 text-sm font-bold text-slate-700">Belum ada notifikasi baru</p>
+                <p className="mt-1 text-xs text-slate-500">Aktivitas yang dipilih akan muncul di sini.</p>
               </div>
             ) : (
               <div className="divide-y divide-slate-100">
-                {notifications.map((notif) => (
-                  <div
-                    key={notif.id}
-                    className={`px-4 py-3 hover:bg-slate-50 transition-colors flex gap-3 ${
-                      !notif.read ? "bg-slate-100/20" : ""
-                    }`}
-                  >
-                    <div className="mt-0.5 flex-shrink-0">
-                      {notif.type === "INSERT" ? (
-                        <div className="h-8 w-8 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-400 border border-indigo-500/20">
-                          <ShoppingCart className="h-4 w-4" />
-                        </div>
-                      ) : (
-                        <div className="h-8 w-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400 border border-emerald-500/20">
-                          <Package className="h-4 w-4" />
-                        </div>
+                {notifications.map((notification) => {
+                  const iconData = notificationIcon(notification);
+                  const Icon = iconData.icon;
+                  return (
+                    <button
+                      type="button"
+                      key={notification.id}
+                      onClick={() => setNotifications((previous) => previous.map((item) => item.id === notification.id ? { ...item, read: true } : item))}
+                      className={cn(
+                        "flex w-full gap-3 px-4 py-3 text-left transition hover:bg-slate-50",
+                        !notification.read && "bg-indigo-50/35"
                       )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-800">
-                        {notif.title}
-                        {!notif.read && (
-                          <span className="ml-2 inline-block w-1.5 h-1.5 bg-indigo-500 rounded-full"></span>
-                        )}
-                      </p>
-                      <p className="text-xs text-slate-400 mt-0.5 line-clamp-2">{notif.message}</p>
-                      <div className="flex items-center gap-1 mt-1.5 text-[10px] text-slate-500">
-                        <Clock className="h-3 w-3" />
-                        {getTimeAgo(notif.time)}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                    >
+                      <span className={cn("mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl border", iconData.style)}>
+                        <Icon className="h-4 w-4" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-center gap-2 text-sm font-bold text-slate-800">
+                          {notification.title}
+                          {!notification.read && <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />}
+                        </span>
+                        <span className="mt-0.5 block text-xs leading-5 text-slate-500">{notification.message}</span>
+                        <span className="mt-1 flex items-center gap-1 text-[10px] font-medium text-slate-400">
+                          <Clock className="h-3 w-3" /> {getTimeAgo(notification.time)}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>

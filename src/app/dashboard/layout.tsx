@@ -1,35 +1,20 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { Sidebar } from "@/components/layout/sidebar";
+import { usePathname } from "next/navigation";
+import {
+  Sidebar,
+  MobileSidebar,
+  getVisibleNavigation,
+} from "@/components/layout/sidebar";
 import { NotificationCenter } from "@/components/layout/NotificationCenter";
 import { AuthGuard } from "@/components/layout/AuthGuard";
 import { authService } from "@/services/authService";
 import { UserRole } from "@/types";
-import {
-  LayoutDashboard,
-  Users,
-  Receipt,
-  Package,
-  Settings,
-  Bot,
-  PieChart,
-  Activity,
-  LogOut
-} from "lucide-react";
+import { Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-const navigation = [
-  { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Customers CRM", href: "/dashboard/customers", icon: Users },
-  { name: "Transactions", href: "/dashboard/transactions", icon: Receipt },
-  { name: "Products", href: "/dashboard/products", icon: Package },
-  { name: "Reports", href: "/dashboard/reports", icon: PieChart },
-  { name: "Monitoring", href: "/dashboard/monitoring", icon: Activity },
-  { name: "Settings", href: "/dashboard/settings", icon: Settings },
-];
 
 export default function DashboardLayout({
   children,
@@ -37,42 +22,53 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const router = useRouter();
   const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     authService.getUserRole().then(setUserRole);
   }, []);
 
-  const handleLogout = async () => {
-    await authService.signOut();
-    router.push("/login");
-  };
-
-  const filteredNavigation = navigation.filter(item => {
-    if (userRole === 'STAFF' && (item.name === 'Reports' || item.name === 'Settings')) return false;
-    return true;
-  });
+  const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), []);
 
   return (
-    <div className="min-h-screen text-slate-900 flex flex-col md:flex-row antialiased">
-      {/* Sidebar Desktop */}
+    <div className="flex min-h-screen flex-col text-slate-900 antialiased md:flex-row">
       <Sidebar />
+      <MobileSidebar open={mobileMenuOpen} onClose={closeMobileMenu} />
 
-      {/* Main Container */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Top Navbar / Mobile Nav */}
-        <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/85 backdrop-blur-xl px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3 md:hidden">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white font-bold">
-              <Bot className="h-5 w-5" />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl">
+          <div className="flex min-h-16 items-center gap-3 px-3 pr-16 md:hidden">
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(true)}
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition active:scale-95"
+              aria-label="Buka menu utama"
+              aria-expanded={mobileMenuOpen}
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+
+            <div className="flex min-w-0 flex-1 items-center gap-2.5">
+              <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-xl bg-indigo-50 ring-1 ring-indigo-100">
+                <Image
+                  src="/brand/candra-bot-logo.png"
+                  alt="Logo CANDRA BOT"
+                  fill
+                  sizes="40px"
+                  className="object-contain p-1"
+                  priority
+                />
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-black tracking-tight text-slate-950">CANDRA BOT</p>
+                <p className="truncate text-xs font-medium text-slate-500">Admin Dashboard</p>
+              </div>
             </div>
-            <span className="font-bold text-slate-950 text-sm">CANDRA BOT</span>
           </div>
 
-          {/* Nav Tabs Header */}
-          <div className="flex items-center gap-2 overflow-x-auto py-1 flex-1">
-            {filteredNavigation.map((item) => {
+          <div className="hidden min-h-16 items-center gap-2 overflow-x-auto px-4 py-2 pr-16 md:flex">
+            {getVisibleNavigation(userRole).map((item) => {
               const isActive =
                 pathname === item.href ||
                 (item.href !== "/dashboard" && pathname.startsWith(item.href));
@@ -82,10 +78,10 @@ export default function DashboardLayout({
                   key={item.name}
                   href={item.href}
                   className={cn(
-                    "flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all",
+                    "flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold transition-all",
                     isActive
                       ? "bg-indigo-600 text-white shadow-sm"
-                      : "text-slate-400 hover:bg-slate-100 hover:text-slate-800"
+                      : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"
                   )}
                 >
                   <Icon className="h-3.5 w-3.5" />
@@ -93,21 +89,15 @@ export default function DashboardLayout({
                 </Link>
               );
             })}
-            
-            <div className="ml-auto pl-2 border-l border-slate-300 flex items-center gap-3">
-              <NotificationCenter />
-              <button onClick={handleLogout} className="text-slate-400 hover:text-red-400 md:hidden p-1">
-                <LogOut className="h-5 w-5" />
-              </button>
-            </div>
+          </div>
+
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 border-l border-slate-200 pl-2 md:right-4 md:pl-3">
+            <NotificationCenter />
           </div>
         </header>
 
-        {/* Page Body */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-[1480px] w-full mx-auto space-y-6">
-          <AuthGuard>
-            {children}
-          </AuthGuard>
+        <main className="mx-auto w-full max-w-[1480px] flex-1 space-y-6 p-4 sm:p-6 lg:p-8">
+          <AuthGuard>{children}</AuthGuard>
         </main>
       </div>
     </div>

@@ -1,0 +1,9 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    @apply min-h-screen bg-slate-50 text-slate-900 antialiased selection:bg-indigo-200 selection:text-indigo-950;
+    background-image: radial-gradient(circle at 88% 3%, rgba(99,102,241,.09), transparent 24rem), radial-gradient(circle at 4% 92%, rgba(6,182,212,.07), transparent 22rem);
+  }
+  button, a, input, select, textarea { @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 focus-visible:ring-offset-2; }
+}

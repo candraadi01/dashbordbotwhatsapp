@@ -380,15 +380,61 @@ export default function ProductsPage() {
       const compactGrid = viewMode === "grid" && !isExpanded;
       return <Card key={service.name} className={`overflow-hidden border-slate-200 shadow-sm transition-all duration-300 ${viewMode === "grid" && isExpanded ? "col-span-full" : ""}`}>
         <div className="h-1.5 bg-gradient-to-r from-indigo-500 via-cyan-400 to-emerald-400" />
-        <div className={`flex flex-col gap-4 ${compactGrid ? "p-3" : "p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between"}`}>
-          <button className={`flex min-w-0 flex-1 rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${compactGrid ? "flex-col items-start gap-3" : "items-center gap-4"}`} onClick={() => toggleService(service.name)} aria-expanded={isExpanded}>
-            {service.imageUrl ? <img src={service.imageUrl} alt="" className={`${compactGrid ? "h-12 w-12" : "h-14 w-14"} rounded-2xl object-cover`} /> : <span className={`flex shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 ${compactGrid ? "h-12 w-12" : "h-14 w-14"}`}><Package className="h-6 w-6" /></span>}
-            <span className="min-w-0"><span className="flex items-center gap-2 text-lg font-bold text-slate-950">{isExpanded ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}{service.name}</span><span className="mt-1 block text-sm text-slate-500">{service.categories.length} kategori · {service.variants.length} varian · menu nomor {service.position}</span></span>
-          </button>
-          {canEdit && <div className="grid grid-cols-[1fr_44px] gap-2 sm:flex">
-            <Button className="h-11 sm:h-8" variant="outline" size="sm" onClick={() => beginCreateCategory(service.name)}><Plus className="mr-1.5 h-4 w-4" />{compactGrid ? "Kategori" : "Tambah kategori"}</Button>
-            <Button className="group h-11 w-11 overflow-hidden shadow-red-200 transition-all hover:-translate-y-0.5 hover:shadow-lg sm:h-9 sm:w-9" variant="destructive" size="icon" onClick={() => removeService(service.name)} aria-label="Hapus layanan"><Trash2 className="h-4 w-4 transition-transform duration-200 group-hover:scale-110 group-hover:-rotate-6" /></Button>
-          </div>}
+        <div className={`flex flex-col gap-4 ${compactGrid ? "" : "p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between"}`}>
+          {/* ── Compact grid card (mobile-friendly with large image) ── */}
+          {compactGrid ? <>
+            <button
+              className="flex w-full flex-col text-left outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+              onClick={() => toggleService(service.name)}
+              aria-expanded={isExpanded}
+            >
+              {/* Hero image */}
+              {service.imageUrl ? (
+                <div className="relative w-full overflow-hidden" style={{ aspectRatio: "16/10" }}>
+                  <img
+                    src={service.imageUrl}
+                    alt={service.name}
+                    className="h-full w-full object-cover transition-transform duration-300 hover:scale-105"
+                  />
+                  {/* Gradient overlay for readability */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+                  {/* Menu badge on image */}
+                  <span className="absolute left-2.5 top-2.5 rounded-lg bg-white/90 px-2 py-0.5 text-[10px] font-bold text-indigo-700 shadow-sm backdrop-blur-sm">
+                    Menu #{service.position}
+                  </span>
+                </div>
+              ) : (
+                <div className="relative flex w-full items-center justify-center bg-gradient-to-br from-indigo-50 via-indigo-100 to-blue-50" style={{ aspectRatio: "16/10" }}>
+                  <Package className="h-12 w-12 text-indigo-300" />
+                  <span className="absolute left-2.5 top-2.5 rounded-lg bg-white/90 px-2 py-0.5 text-[10px] font-bold text-indigo-700 shadow-sm">
+                    Menu #{service.position}
+                  </span>
+                </div>
+              )}
+              {/* Text info */}
+              <div className="px-3 pb-1 pt-3">
+                <span className="flex items-center gap-1.5 text-base font-black text-slate-950">
+                  {isExpanded ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
+                  {service.name}
+                </span>
+                <span className="mt-1 block text-xs text-slate-500">{service.categories.length} kategori · {service.variants.length} varian</span>
+              </div>
+            </button>
+            {canEdit && <div className="grid grid-cols-[1fr_44px] gap-2 px-3 pb-3">
+              <Button className="h-11 sm:h-8" variant="outline" size="sm" onClick={() => beginCreateCategory(service.name)}><Plus className="mr-1.5 h-4 w-4" />Kategori</Button>
+              <Button className="group h-11 w-11 overflow-hidden shadow-red-200 transition-all hover:-translate-y-0.5 hover:shadow-lg sm:h-9 sm:w-9" variant="destructive" size="icon" onClick={() => removeService(service.name)} aria-label="Hapus layanan"><Trash2 className="h-4 w-4 transition-transform duration-200 group-hover:scale-110 group-hover:-rotate-6" /></Button>
+            </div>}
+          </> : <>
+            {/* ── List view / expanded card header ── */}
+            <button className="flex min-w-0 flex-1 items-center gap-4 rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-indigo-500" onClick={() => toggleService(service.name)} aria-expanded={isExpanded}>
+              {service.imageUrl ? <img src={service.imageUrl} alt="" className="h-14 w-14 rounded-2xl object-cover" /> : <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600"><Package className="h-6 w-6" /></span>}
+              <span className="min-w-0"><span className="flex items-center gap-2 text-lg font-bold text-slate-950">{isExpanded ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}{service.name}</span><span className="mt-1 block text-sm text-slate-500">{service.categories.length} kategori · {service.variants.length} varian · menu nomor {service.position}</span></span>
+            </button>
+            {canEdit && <div className="grid grid-cols-[1fr_44px] gap-2 sm:flex">
+              <Button className="h-11 sm:h-8" variant="outline" size="sm" onClick={() => beginCreateCategory(service.name)}><Plus className="mr-1.5 h-4 w-4" />Tambah kategori</Button>
+              <Button className="group h-11 w-11 overflow-hidden shadow-red-200 transition-all hover:-translate-y-0.5 hover:shadow-lg sm:h-9 sm:w-9" variant="destructive" size="icon" onClick={() => removeService(service.name)} aria-label="Hapus layanan"><Trash2 className="h-4 w-4 transition-transform duration-200 group-hover:scale-110 group-hover:-rotate-6" /></Button>
+            </div>}
+          </>}
         </div>
 
         {isExpanded && <div className="space-y-4 border-t border-slate-100 bg-slate-50/60 p-4 sm:p-5">{service.categories.map((category) => <div key={`${service.name}:${category.name}`} className="overflow-hidden rounded-2xl border border-slate-200 bg-white">

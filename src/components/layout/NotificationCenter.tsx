@@ -168,67 +168,133 @@ export function NotificationCenter() {
       </button>
 
       {isOpen && (
-        <div className="fixed inset-x-3 top-[4.5rem] z-[65] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl animate-in fade-in slide-in-from-top-2 sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-96">
-          <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-3">
-            <div>
-              <h3 className="text-sm font-black text-slate-950">Notifikasi</h3>
-              <p className="text-[11px] font-medium text-slate-500">Aktivitas transaksi secara realtime</p>
+        <>
+          {/* Mobile: full-screen bottom sheet */}
+          <div className="fixed inset-0 z-[64] bg-slate-950/40 backdrop-blur-sm sm:hidden" onClick={() => setIsOpen(false)} />
+          <div className="fixed bottom-0 left-0 right-0 z-[65] flex flex-col overflow-hidden rounded-t-3xl border-t border-slate-200 bg-white shadow-2xl animate-in slide-in-from-bottom-4 sm:hidden" style={{ maxHeight: "80dvh" }}>
+            <div className="mx-auto mt-2.5 h-1 w-10 rounded-full bg-slate-200" />
+            <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-3">
+              <div>
+                <h3 className="text-sm font-black text-slate-950">Notifikasi</h3>
+                <p className="text-[11px] font-medium text-slate-500">Aktivitas transaksi secara realtime</p>
+              </div>
+              {unreadCount > 0 && (
+                <button
+                  type="button"
+                  onClick={markAllAsRead}
+                  className="flex min-h-10 items-center gap-1.5 rounded-lg px-2 text-xs font-bold text-indigo-600 transition hover:bg-indigo-50"
+                >
+                  <Check className="h-3.5 w-3.5" /> Tandai dibaca
+                </button>
+              )}
             </div>
-            {unreadCount > 0 && (
-              <button
-                type="button"
-                onClick={markAllAsRead}
-                className="flex min-h-10 items-center gap-1.5 rounded-lg px-2 text-xs font-bold text-indigo-600 transition hover:bg-indigo-50"
-              >
-                <Check className="h-3.5 w-3.5" /> Tandai dibaca
-              </button>
-            )}
+            <div className="flex-1 overflow-y-auto overscroll-contain">
+              {notifications.length === 0 ? (
+                <div className="px-5 py-10 text-center">
+                  <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-slate-100 text-slate-400">
+                    <Bell className="h-5 w-5" />
+                  </span>
+                  <p className="mt-3 text-sm font-bold text-slate-700">Belum ada notifikasi baru</p>
+                  <p className="mt-1 text-xs text-slate-500">Aktivitas yang dipilih akan muncul di sini.</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100 pb-safe">
+                  {notifications.map((notification) => {
+                    const iconData = notificationIcon(notification);
+                    const Icon = iconData.icon;
+                    return (
+                      <button
+                        type="button"
+                        key={notification.id}
+                        onClick={() => setNotifications((previous) => previous.map((item) => item.id === notification.id ? { ...item, read: true } : item))}
+                        className={cn(
+                          "flex w-full gap-3 px-4 py-3.5 text-left transition hover:bg-slate-50",
+                          !notification.read && "bg-indigo-50/35"
+                        )}
+                      >
+                        <span className={cn("mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl border", iconData.style)}>
+                          <Icon className="h-4 w-4" />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="flex items-center gap-2 text-sm font-bold text-slate-800">
+                            {notification.title}
+                            {!notification.read && <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />}
+                          </span>
+                          <span className="mt-0.5 block text-xs leading-5 text-slate-500">{notification.message}</span>
+                          <span className="mt-1 flex items-center gap-1 text-[10px] font-medium text-slate-400">
+                            <Clock className="h-3 w-3" /> {getTimeAgo(notification.time)}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
 
-          <div className="max-h-[min(65vh,420px)] overflow-y-auto overscroll-contain">
-            {notifications.length === 0 ? (
-              <div className="px-5 py-10 text-center">
-                <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-slate-100 text-slate-400">
-                  <Bell className="h-5 w-5" />
-                </span>
-                <p className="mt-3 text-sm font-bold text-slate-700">Belum ada notifikasi baru</p>
-                <p className="mt-1 text-xs text-slate-500">Aktivitas yang dipilih akan muncul di sini.</p>
+          {/* Desktop: dropdown */}
+          <div className="absolute right-0 top-full z-[65] mt-2 hidden w-96 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl animate-in fade-in slide-in-from-top-2 sm:block">
+            <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-3">
+              <div>
+                <h3 className="text-sm font-black text-slate-950">Notifikasi</h3>
+                <p className="text-[11px] font-medium text-slate-500">Aktivitas transaksi secara realtime</p>
               </div>
-            ) : (
-              <div className="divide-y divide-slate-100">
-                {notifications.map((notification) => {
-                  const iconData = notificationIcon(notification);
-                  const Icon = iconData.icon;
-                  return (
-                    <button
-                      type="button"
-                      key={notification.id}
-                      onClick={() => setNotifications((previous) => previous.map((item) => item.id === notification.id ? { ...item, read: true } : item))}
-                      className={cn(
-                        "flex w-full gap-3 px-4 py-3 text-left transition hover:bg-slate-50",
-                        !notification.read && "bg-indigo-50/35"
-                      )}
-                    >
-                      <span className={cn("mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl border", iconData.style)}>
-                        <Icon className="h-4 w-4" />
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="flex items-center gap-2 text-sm font-bold text-slate-800">
-                          {notification.title}
-                          {!notification.read && <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />}
+              {unreadCount > 0 && (
+                <button
+                  type="button"
+                  onClick={markAllAsRead}
+                  className="flex min-h-10 items-center gap-1.5 rounded-lg px-2 text-xs font-bold text-indigo-600 transition hover:bg-indigo-50"
+                >
+                  <Check className="h-3.5 w-3.5" /> Tandai dibaca
+                </button>
+              )}
+            </div>
+            <div className="max-h-[min(65vh,420px)] overflow-y-auto overscroll-contain">
+              {notifications.length === 0 ? (
+                <div className="px-5 py-10 text-center">
+                  <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-slate-100 text-slate-400">
+                    <Bell className="h-5 w-5" />
+                  </span>
+                  <p className="mt-3 text-sm font-bold text-slate-700">Belum ada notifikasi baru</p>
+                  <p className="mt-1 text-xs text-slate-500">Aktivitas yang dipilih akan muncul di sini.</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100">
+                  {notifications.map((notification) => {
+                    const iconData = notificationIcon(notification);
+                    const Icon = iconData.icon;
+                    return (
+                      <button
+                        type="button"
+                        key={notification.id}
+                        onClick={() => setNotifications((previous) => previous.map((item) => item.id === notification.id ? { ...item, read: true } : item))}
+                        className={cn(
+                          "flex w-full gap-3 px-4 py-3 text-left transition hover:bg-slate-50",
+                          !notification.read && "bg-indigo-50/35"
+                        )}
+                      >
+                        <span className={cn("mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl border", iconData.style)}>
+                          <Icon className="h-4 w-4" />
                         </span>
-                        <span className="mt-0.5 block text-xs leading-5 text-slate-500">{notification.message}</span>
-                        <span className="mt-1 flex items-center gap-1 text-[10px] font-medium text-slate-400">
-                          <Clock className="h-3 w-3" /> {getTimeAgo(notification.time)}
+                        <span className="min-w-0 flex-1">
+                          <span className="flex items-center gap-2 text-sm font-bold text-slate-800">
+                            {notification.title}
+                            {!notification.read && <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />}
+                          </span>
+                          <span className="mt-0.5 block text-xs leading-5 text-slate-500">{notification.message}</span>
+                          <span className="mt-1 flex items-center gap-1 text-[10px] font-medium text-slate-400">
+                            <Clock className="h-3 w-3" /> {getTimeAgo(notification.time)}
+                          </span>
                         </span>
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );

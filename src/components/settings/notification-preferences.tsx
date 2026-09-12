@@ -351,46 +351,25 @@ export function NotificationPreferences() {
           </div>
         )}
 
-        {/* ── KARTU KHUSUS: Web Push Layar HP (Mobile-Friendly & Rapi) ── */}
-        <div className="rounded-2xl border border-violet-200/90 bg-gradient-to-br from-violet-50/70 via-white to-purple-50/40 p-4 sm:p-5 shadow-sm space-y-4">
-          {/* Header Baris: Icon, Judul, Status Pill, dan Toggle */}
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex min-w-0 items-start gap-3">
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-violet-600 text-white shadow-md shadow-violet-600/25">
-                <Smartphone className="h-5 w-5" />
+        {/* ── KARTU KHUSUS: Web Push Layar HP (Mobile-First & Clean) ── */}
+        <div className="rounded-2xl border border-violet-200 bg-white p-4 shadow-sm space-y-3.5 sm:p-5">
+          {/* Baris 1: Icon + Judul di kiri, Toggle di kanan */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-violet-100 text-violet-600">
+                <Smartphone className="h-4 w-4" />
               </span>
               <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-sm sm:text-base font-black text-slate-950">
-                    Notifikasi Layar HP (Web Push)
-                  </h3>
-                  {!isSupported ? (
-                    <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500">
-                      Tidak Didukung
-                    </span>
-                  ) : isDenied ? (
-                    <span className="inline-flex items-center rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-700">
-                      Izin Diblokir
-                    </span>
-                  ) : settings.pushNotificationEnabled && (isGranted || isSubscribed) ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 animate-pulse" />
-                      Aktif di Layar HP
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
-                      Belum Aktif
-                    </span>
-                  )}
-                </div>
-                <p className="mt-1 text-xs leading-relaxed text-slate-600">
-                  Notifikasi banner & getar langsung muncul di layar HP seperti WhatsApp, bahkan saat browser sedang ditutup.
+                <h3 className="text-sm font-black text-slate-900 truncate">
+                  Notifikasi Layar HP
+                </h3>
+                <p className="text-[11px] font-medium text-slate-500">
+                  Web Push &amp; Layar Kunci
                 </p>
               </div>
             </div>
 
-            {/* Toggle Switch */}
-            <div className="shrink-0 pt-0.5">
+            <div className="shrink-0">
               <Toggle
                 checked={Boolean(settings.pushNotificationEnabled && (isGranted || isSubscribed))}
                 onChange={async (checked) => {
@@ -410,7 +389,7 @@ export function NotificationPreferences() {
                         type: "error",
                         text: isDenied
                           ? "Izin notifikasi ditolak browser. Buka setelan browser di HP Anda untuk mengizinkan."
-                          : "Gagal menghubungkan Web Push. Pastikan koneksi dan browser mendukung Service Worker.",
+                          : "Gagal menghubungkan Web Push. Pastikan koneksi stabil.",
                       });
                     }
                   } else {
@@ -429,40 +408,64 @@ export function NotificationPreferences() {
             </div>
           </div>
 
-          {/* Action Area: Tombol Nyaman Ditekan untuk Layar Mobile */}
-          <div className="pt-1">
-            {isSupported && (isGranted || isSubscribed) ? (
-              <div className="space-y-2">
-                <button
-                  type="button"
-                  disabled={testingPush}
-                  onClick={async () => {
-                    setTestingPush(true);
-                    setMessage(null);
-                    const res = await sendTestNotification();
-                    setTestingPush(false);
-                    if (res.success) {
-                      setMessage({
-                        type: "success",
-                        text: `Tes notifikasi berhasil dikirim! ${res.message || "Cek layar HP Anda sekarang."}`,
-                      });
-                    } else {
-                      setMessage({
-                        type: "error",
-                        text: res.message || "Gagal mengirim notifikasi tes.",
-                      });
-                    }
-                  }}
-                  className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-xs sm:text-sm font-bold text-white shadow-sm transition hover:bg-violet-700 active:scale-[0.98] disabled:opacity-50"
-                >
-                  <BellRing className="h-4 w-4" />
-                  {testingPush ? "Mengirim ke Layar HP..." : "Kirim Tes Notifikasi ke Layar HP"}
-                </button>
-                <p className="text-center text-[11px] font-medium text-slate-500">
-                  Tekan tombol di atas untuk menguji apakah banner notifikasi muncul di HP Anda.
-                </p>
-              </div>
-            ) : isSupported && !isGranted && !isDenied ? (
+          {/* Baris 2: Status Bar Perangkat */}
+          <div className="flex items-center justify-between gap-2 rounded-xl bg-slate-50 px-3 py-2 border border-slate-100">
+            <span className="text-xs font-semibold text-slate-600">Status HP:</span>
+            {!isSupported ? (
+              <span className="rounded-md bg-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-600">
+                Tidak didukung
+              </span>
+            ) : isDenied ? (
+              <span className="rounded-md bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-700">
+                Izin diblokir
+              </span>
+            ) : settings.pushNotificationEnabled && (isGranted || isSubscribed) ? (
+              <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-100 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                Aktif di Layar HP
+              </span>
+            ) : (
+              <span className="rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                Belum diaktifkan
+              </span>
+            )}
+          </div>
+
+          <p className="text-xs leading-relaxed text-slate-500">
+            Notifikasi banner & getar langsung muncul di layar HP seperti WhatsApp, bahkan saat browser sedang ditutup.
+          </p>
+
+          {/* Baris 3: Tombol Aksi */}
+          {isSupported && (isGranted || isSubscribed) ? (
+            <div className="space-y-1.5 pt-0.5">
+              <button
+                type="button"
+                disabled={testingPush}
+                onClick={async () => {
+                  setTestingPush(true);
+                  setMessage(null);
+                  const res = await sendTestNotification();
+                  setTestingPush(false);
+                  if (res.success) {
+                    setMessage({
+                      type: "success",
+                      text: `Tes notifikasi berhasil dikirim! ${res.message || "Cek layar HP Anda sekarang."}`,
+                    });
+                  } else {
+                    setMessage({
+                      type: "error",
+                      text: res.message || "Gagal mengirim notifikasi tes.",
+                    });
+                  }
+                }}
+                className="flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-4 py-2 text-xs font-bold text-violet-700 transition hover:bg-violet-100 active:scale-95 disabled:opacity-50"
+              >
+                <BellRing className="h-3.5 w-3.5 text-violet-600" />
+                <span>{testingPush ? "Mengirim ke Layar HP..." : "Kirim Tes Notifikasi ke Layar HP"}</span>
+              </button>
+            </div>
+          ) : isSupported && !isGranted && !isDenied ? (
+            <div className="pt-0.5">
               <button
                 type="button"
                 disabled={requestingPush || pushLoading}
@@ -475,7 +478,7 @@ export function NotificationPreferences() {
                     updateSetting("pushNotificationEnabled", true);
                     setMessage({
                       type: "success",
-                      text: "Izin diberikan! HP Anda siap menerima notifikasi transaksi secara realtime.",
+                      text: "Izin berhasil aktif! HP Anda kini siap menerima notifikasi.",
                     });
                   } else {
                     setMessage({
@@ -484,22 +487,19 @@ export function NotificationPreferences() {
                     });
                   }
                 }}
-                className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-xs sm:text-sm font-bold text-white shadow-sm transition hover:bg-violet-700 active:scale-[0.98] disabled:cursor-wait disabled:opacity-70"
+                className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-violet-700 active:scale-95 disabled:opacity-70"
               >
                 <Smartphone className="h-4 w-4" />
-                {requestingPush ? "Menghubungkan ke Web Push..." : "Izinkan & Aktifkan Notifikasi HP"}
+                <span>{requestingPush ? "Menghubungkan ke HP..." : "Izinkan & Aktifkan Notifikasi HP"}</span>
               </button>
-            ) : null}
+            </div>
+          ) : null}
 
-            {isDenied && (
-              <div className="rounded-xl border border-rose-200 bg-rose-50/90 p-3 text-xs leading-relaxed text-rose-800">
-                <span className="font-bold">Izin notifikasi diblokir browser.</span>
-                <p className="mt-1 text-[11px]">
-                  Buka Pengaturan browser HP Anda → Setelan Situs → Notifikasi → Pilih situs ini lalu ubah ke <strong>Izinkan</strong>.
-                </p>
-              </div>
-            )}
-          </div>
+          {isDenied && (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 p-2.5 text-[11px] leading-relaxed text-rose-800">
+              <span className="font-bold">Izin diblokir browser:</span> Buka Pengaturan browser HP Anda → Setelan Situs → Notifikasi → Izinkan situs ini.
+            </div>
+          )}
         </div>
       </div>
     </section>

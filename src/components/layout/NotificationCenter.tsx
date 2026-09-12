@@ -21,7 +21,6 @@ import { usePushNotification } from "@/hooks/usePushNotification";
 import { playNotificationSound } from "@/lib/notificationSound";
 import { TransactionRow } from "@/types";
 import { cn } from "@/lib/utils";
-import { SystemNotificationPrompt } from "./SystemNotificationPrompt";
 
 export interface AppNotification {
   id: string;
@@ -234,6 +233,8 @@ function MobileSheet({
   notifications,
   unreadCount,
   now,
+  isGranted,
+  onEnablePush,
   onClose,
   onDismiss,
   onMarkAll,
@@ -243,6 +244,8 @@ function MobileSheet({
   notifications: AppNotification[];
   unreadCount: number;
   now: number;
+  isGranted: boolean;
+  onEnablePush: () => void;
   onClose: () => void;
   onDismiss: (id: string) => void;
   onMarkAll: () => void;
@@ -326,7 +329,25 @@ function MobileSheet({
           showClose
         />
 
-        <SystemNotificationPrompt variant="panel" />
+        {!isGranted && (
+          <div className="flex items-center justify-between gap-3 border-b border-indigo-100 bg-indigo-50/80 px-4 py-2.5">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="grid h-6 w-6 place-items-center rounded-md bg-indigo-600 text-white shrink-0">
+                <Bell className="h-3.5 w-3.5" />
+              </span>
+              <span className="text-xs font-bold text-indigo-950 truncate">
+                Izinkan notifikasi layar HP
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={onEnablePush}
+              className="shrink-0 rounded-lg bg-indigo-600 px-3 py-1 text-xs font-bold text-white shadow-xs transition hover:bg-indigo-700 active:scale-95"
+            >
+              Izinkan
+            </button>
+          </div>
+        )}
 
         <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
           {notifications.length === 0 ? (
@@ -358,11 +379,18 @@ export function NotificationCenter() {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
-  const { settings, isLoaded } = useSettings();
-  const { isGranted, sendNotification } = usePushNotification();
+  const { settings, updateSetting, isLoaded } = useSettings();
+  const { isGranted, sendNotification, subscribeToPush } = usePushNotification();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const recentEventsRef = useRef<Map<string, number>>(new Map());
   const unreadCount = notifications.length;
+
+  const handleEnablePush = useCallback(async () => {
+    const ok = await subscribeToPush();
+    if (ok) {
+      updateSetting("pushNotificationEnabled", true);
+    }
+  }, [subscribeToPush, updateSetting]);
 
   // Detect mobile (< 640px)
   const [isMobile, setIsMobile] = useState(false);
@@ -630,6 +658,8 @@ export function NotificationCenter() {
           notifications={notifications}
           unreadCount={unreadCount}
           now={currentTime}
+          isGranted={isGranted}
+          onEnablePush={handleEnablePush}
           onClose={() => setIsOpen(false)}
           onDismiss={handleDismissOne}
           onMarkAll={handleDismissAll}
@@ -644,7 +674,25 @@ export function NotificationCenter() {
             unreadCount={unreadCount}
             onMarkAll={handleDismissAll}
           />
-          <SystemNotificationPrompt variant="panel" />
+          {!isGranted && (
+            <div className="flex items-center justify-between gap-3 border-b border-indigo-100 bg-indigo-50/80 px-4 py-2.5">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="grid h-6 w-6 place-items-center rounded-md bg-indigo-600 text-white shrink-0">
+                  <Bell className="h-3.5 w-3.5" />
+                </span>
+                <span className="text-xs font-bold text-indigo-950 truncate">
+                  Izinkan notifikasi layar HP
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleEnablePush}
+                className="shrink-0 rounded-lg bg-indigo-600 px-3 py-1 text-xs font-bold text-white shadow-xs transition hover:bg-indigo-700 active:scale-95"
+              >
+                Izinkan
+              </button>
+            </div>
+          )}
           <div className="max-h-[min(65vh,420px)] overflow-y-auto overscroll-contain">
             {notifications.length === 0 ? (
               <EmptyState />

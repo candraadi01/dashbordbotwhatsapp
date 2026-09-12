@@ -1,18 +1,21 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 
-export type PermissionState = "default" | "granted" | "denied" | "unsupported";
+export type PushStatus =
+  | "unsupported"   // Browser tidak support push
+  | "checking"      // Sedang cek status
+  | "denied"        // User menolak izin
+  | "granted"       // Sudah aktif
+  | "default"       // Belum ada keputusan
+  | "loading";      // Sedang proses subscribe/unsubscribe
 
-export interface OsNotificationOptions {
-  title: string;
-  body: string;
-  icon?: string;
-  tag?: string;
-  data?: Record<string, unknown>;
-}
+const VAPID_PUBLIC_KEY =
+  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ??
+  "BIeAb1LsZdKrM13UHs8VIRROEYd3c7TZRU1z8jq2yKqLS0WQ0f-N8HT3B3cPWWLcT-LNDxBrFfDB0V9JlWyA2Dg";
 
-function urlBase64ToUint8Array(base64String: string): Uint8Array {
+function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
   const rawData = window.atob(base64);
@@ -20,234 +23,229 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   for (let i = 0; i < rawData.length; ++i) {
     outputArray[i] = rawData.charCodeAt(i);
   }
-  return outputArray;
+  return outputArray.buffer;
 }
 
-const DEFAULT_VAPID_PUBLIC_KEY =
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ||
-  "BIeAb1LsZdKrM13UHs8VIRROEYd3c7TZRU1z8jq2yKqLS0WQ0f-N8HT3B3cPWWLcT-LNDxBrFfDB0V9JlWyA2Dg";
+async function getAuthToken(): Promise<string> {
+  try {
+    const { data } = await supabase.auth.getSession();
+    return data.session?.access_token ?? "";
+  } catch {
+    return "";
+  }
+}
 
 export function usePushNotification() {
-  const [permissionState, setPermissionState] = useState<PermissionState>("unsupported");
-  const [isSubscribed, setIsSubscribed] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [status, setStatus] = useState<PushStatus>("checking");
+  const [endpoint, setEndpoint] = useState<string | null>(null);
 
-  // Periksa izin dan status subscription saat mount
+  const isSupported =
+    typeof window !== "undefined" &&
+    "serviceWorker" in navigator &&
+    "PushManager" in window &&
+    "Notification" in window &&
+    Boolean(VAPID_PUBLIC_KEY);
+
+  // ── Cek status awal ──────────────────────────────────────────────────────────
   useEffect(() => {
-    if (typeof window === "undefined" || !("Notification" in window)) {
-      setPermissionState("unsupported");
+    if (!isSupported) {
+      setStatus("unsupported");
       return;
     }
 
-    setPermissionState(Notification.permission as PermissionState);
-
-    // Periksa apakah sudah berlangganan PushManager
-    if ("serviceWorker" in navigator && "PushManager" in window) {
-      navigator.serviceWorker.ready
-        .then((reg) => reg.pushManager.getSubscription())
-        .then((sub) => {
-          setIsSubscribed(Boolean(sub));
-        })
-        .catch(() => setIsSubscribed(false));
-    }
-  }, []);
-
-  /** Minta izin notifikasi browser */
-  const requestPermission = useCallback(async (): Promise<PermissionState> => {
-    if (typeof window === "undefined" || !("Notification" in window)) {
-      return "unsupported";
-    }
-    try {
-      const result = await Notification.requestPermission();
-      setPermissionState(result as PermissionState);
-      return result as PermissionState;
-    } catch {
-      setPermissionState("denied");
-      return "denied";
-    }
-  }, []);
-
-  /** Mendaftar ke Web Push Server (VAPID + Service Worker) */
-  const subscribeToPush = useCallback(
-    async (publicKey = DEFAULT_VAPID_PUBLIC_KEY): Promise<boolean> => {
-      if (typeof window === "undefined" || !("serviceWorker" in navigator) || !("PushManager" in window)) {
-        return false;
-      }
-
-      setIsLoading(true);
+    async function checkStatus() {
       try {
-        // 1. Minta izin jika belum
-        const permission = await Notification.requestPermission();
-        setPermissionState(permission as PermissionState);
-        if (permission !== "granted") {
-          setIsLoading(false);
-          return false;
+        const permission = Notification.permission;
+        if (permission === "denied") {
+          setStatus("denied");
+          return;
         }
 
-        // 2. Pastikan Service Worker terdaftar
-        const reg = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
-        await navigator.serviceWorker.ready;
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
 
-        // 3. Daftarkan Push Subscription
-        const convertedKey = urlBase64ToUint8Array(publicKey);
-        let subscription = await reg.pushManager.getSubscription();
-        if (!subscription) {
-          subscription = await reg.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: convertedKey as unknown as BufferSource,
-          });
+        if (sub) {
+          setEndpoint(sub.endpoint);
+          setStatus("granted");
+        } else if (permission === "granted") {
+          setStatus("default");
+        } else {
+          setStatus("default");
         }
-
-        // 4. Kirim endpoint ke API server
-        const response = await fetch("/api/push/subscribe", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            subscription: subscription.toJSON(),
-            userAgent: navigator.userAgent,
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error("Gagal mendaftarkan subscription ke server");
-        }
-
-        setIsSubscribed(true);
-
-        // Tampilkan konfirmasi notifikasi sistem langsung di layar HP seketika
-        try {
-          void reg.showNotification("🔔 Notifikasi Sistem Aktif!", {
-            body: "HP Anda kini siap menerima notifikasi pesanan dan transaksi realtime.",
-            icon: "/icons/icon-192.png",
-            badge: "/icons/icon-192.png",
-            vibrate: [200, 100, 200],
-            tag: "system-permission-granted",
-          } as any);
-        } catch (_) {}
-
-        return true;
-      } catch (err) {
-        console.error("[usePushNotification] Subscribe error:", err);
-        return false;
-      } finally {
-        setIsLoading(false);
+      } catch {
+        setStatus("default");
       }
-    },
-    []
-  );
-
-  /** Berhenti berlangganan Web Push */
-  const unsubscribeFromPush = useCallback(async (): Promise<boolean> => {
-    if (typeof window === "undefined" || !("serviceWorker" in navigator) || !("PushManager" in window)) {
-      return false;
     }
 
-    setIsLoading(true);
-    try {
-      const reg = await navigator.serviceWorker.ready;
-      const subscription = await reg.pushManager.getSubscription();
-      if (subscription) {
-        const endpoint = subscription.endpoint;
-        await subscription.unsubscribe();
+    void checkStatus();
+  }, [isSupported]);
 
-        // Beritahu server untuk menghapus subscription
-        await fetch("/api/push/unsubscribe", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ endpoint }),
-        });
+  // ── Subscribe ─────────────────────────────────────────────────────────────────
+  const subscribe = useCallback(async (): Promise<boolean> => {
+    if (!isSupported) return false;
+    setStatus("loading");
+    try {
+      // 1. Minta izin notifikasi
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        setStatus(permission === "denied" ? "denied" : "default");
+        return false;
       }
-      setIsSubscribed(false);
+
+      // 2. Daftarkan service worker
+      const reg = await navigator.serviceWorker.ready;
+
+      // 3. Subscribe ke push
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+
+      // 4. Kirim subscription ke server
+      const token = await getAuthToken();
+      const res = await fetch("/api/push/subscribe", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(sub.toJSON()),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Gagal menyimpan subscription ke database");
+      }
+
+      setEndpoint(sub.endpoint);
+      setStatus("granted");
+
+      // Tampilkan feedback instan langsung di layar HP
+      try {
+        void reg.showNotification("🔔 Notifikasi HP Aktif!", {
+          body: "HP Anda siap menerima notifikasi transaksi secara realtime.",
+          icon: "/icons/icon-192.png",
+          badge: "/icons/icon-192.png",
+          vibrate: [200, 100, 200],
+          tag: "candra-push-active",
+        } as any);
+      } catch (_) {}
+
       return true;
     } catch (err) {
-      console.error("[usePushNotification] Unsubscribe error:", err);
+      console.error("[usePushNotification] subscribe error:", err);
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        const existing = await reg.pushManager.getSubscription();
+        if (existing) {
+          setEndpoint(existing.endpoint);
+          setStatus("granted");
+          return true;
+        }
+      } catch {
+        /* ignore */
+      }
+      setStatus("default");
       return false;
-    } finally {
-      setIsLoading(false);
     }
-  }, []);
+  }, [isSupported]);
 
-  /** Kirim notifikasi tes langsung ke Web Push Server */
+  // ── Unsubscribe ───────────────────────────────────────────────────────────────
+  const unsubscribe = useCallback(async (): Promise<boolean> => {
+    if (!isSupported) return false;
+    setStatus("loading");
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+
+      if (sub) {
+        // Hapus dari server
+        await fetch("/api/push/subscribe", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ endpoint: sub.endpoint }),
+        });
+        // Hapus dari browser
+        await sub.unsubscribe();
+      }
+
+      setEndpoint(null);
+      setStatus("default");
+      return true;
+    } catch (err) {
+      console.error("[usePushNotification] unsubscribe error:", err);
+      setStatus("granted"); // revert
+      return false;
+    }
+  }, [isSupported]);
+
+  // ── Kirim tes notifikasi Web Push ─────────────────────────────────────────────
   const sendTestNotification = useCallback(async (): Promise<{ success: boolean; message?: string }> => {
     try {
-      // 1. Tembak endpoint Web Push server
-      const response = await fetch("/api/push/send", {
+      const res = await fetch("/api/push/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: "🔔 Tes Notifikasi HP Berhasil!",
-          body: "Web Push OS bekerja sempurna di latar belakang HP Anda meskipun browser ditutup.",
+          body: "Web Push bekerja realtime di latar belakang HP Anda meskipun browser ditutup.",
           url: "/dashboard/transactions",
         }),
       });
-      const data = await response.json();
+      const data = await res.json().catch(() => ({}));
 
-      // 2. Tampilkan juga notifikasi sistem langsung di HP lokal sebagai jaminan
+      // Tampilkan juga banner di registration lokal sebagai feedback langsung
       if ("serviceWorker" in navigator) {
-        void navigator.serviceWorker.getRegistration().then((reg) => {
-          if (reg) {
-            void reg.showNotification("🔔 Tes Notifikasi HP Berhasil!", {
-              body: "Banner notifikasi sistem berhasil muncul di layar HP Anda.",
-              icon: "/icons/icon-192.png",
-              badge: "/icons/icon-192.png",
-              vibrate: [250, 100, 250],
-              tag: "test-notification",
-            } as any);
-          }
+        navigator.serviceWorker.ready.then((reg) => {
+          void reg.showNotification("🔔 Tes Notifikasi HP Berhasil!", {
+            body: "Web Push berhasil diterima di HP Anda.",
+            icon: "/icons/icon-192.png",
+            badge: "/icons/icon-192.png",
+            vibrate: [200, 100, 200],
+            tag: "candra-test-notif",
+          } as any);
         });
       }
 
-      if (!response.ok) throw new Error(data.error || "Gagal mengirim tes");
-      return { success: true, message: `Terkirim ke ${data.result?.sent || 1} perangkat.` };
+      if (!res.ok) throw new Error(data.error || "Gagal mengirim tes notifikasi.");
+      return { success: true, message: `Terkirim ke ${data.sent || 1} perangkat.` };
     } catch (err: any) {
       return { success: false, message: err.message || "Gagal mengirim notifikasi tes." };
     }
   }, []);
 
-  /** Fallback pengiriman notifikasi lokal */
-  const sendNotification = useCallback((options: OsNotificationOptions): boolean => {
+  // ── Minta izin browser secara langsung ───────────────────────────────────────
+  const requestPermission = useCallback(async (): Promise<string> => {
+    if (typeof window === "undefined" || !("Notification" in window)) return "unsupported";
+    try {
+      const result = await Notification.requestPermission();
+      setStatus(result === "granted" ? "granted" : result === "denied" ? "denied" : "default");
+      return result;
+    } catch {
+      return "denied";
+    }
+  }, []);
+
+  // ── Tampilkan notifikasi lokal ────────────────────────────────────────────────
+  const sendNotification = useCallback((options: { title: string; body: string; tag?: string; data?: any }): boolean => {
     if (typeof window === "undefined" || !("Notification" in window) || Notification.permission !== "granted") {
       return false;
     }
     try {
       if ("serviceWorker" in navigator) {
-        navigator.serviceWorker.getRegistration().then((reg) => {
-          if (reg) {
-            void reg.showNotification(options.title, {
-              body: options.body,
-              icon: options.icon ?? "/icons/icon-192.png",
-              badge: "/icons/icon-192.png",
-              tag: options.tag,
-              data: options.data,
-              vibrate: [200, 100, 200],
-            } as any);
-          } else {
-            navigator.serviceWorker.ready.then((activeReg) => {
-              void activeReg.showNotification(options.title, {
-                body: options.body,
-                icon: options.icon ?? "/icons/icon-192.png",
-                badge: "/icons/icon-192.png",
-                tag: options.tag,
-                data: options.data,
-                vibrate: [200, 100, 200],
-              } as any);
-            });
-          }
+        navigator.serviceWorker.ready.then((reg) => {
+          void reg.showNotification(options.title, {
+            body: options.body,
+            icon: "/icons/icon-192.png",
+            badge: "/icons/icon-192.png",
+            tag: options.tag,
+            data: options.data,
+            vibrate: [200, 100, 200],
+          } as any);
         }).catch(() => {
-          try {
-            new Notification(options.title, {
-              body: options.body,
-              icon: options.icon ?? "/icons/icon-192.png",
-              tag: options.tag,
-            });
-          } catch (_) {}
+          new Notification(options.title, { body: options.body, icon: "/icons/icon-192.png", tag: options.tag });
         });
       } else {
-        new Notification(options.title, {
-          body: options.body,
-          icon: options.icon ?? "/icons/icon-192.png",
-          tag: options.tag,
-        });
+        new Notification(options.title, { body: options.body, icon: "/icons/icon-192.png", tag: options.tag });
       }
       return true;
     } catch {
@@ -256,16 +254,22 @@ export function usePushNotification() {
   }, []);
 
   return {
-    permissionState,
-    isSupported: permissionState !== "unsupported",
-    isGranted: permissionState === "granted",
-    isDenied: permissionState === "denied",
-    isSubscribed,
-    isLoading,
-    requestPermission,
-    subscribeToPush,
-    unsubscribeFromPush,
+    status,
+    endpoint,
+    isSupported,
+    isGranted: status === "granted",
+    isDenied: status === "denied",
+    isLoading: status === "loading",
+    isSubscribed: status === "granted",
+    permissionState: (typeof window !== "undefined" && "Notification" in window
+      ? Notification.permission
+      : "unsupported") as "default" | "granted" | "denied" | "unsupported",
+    subscribe,
+    unsubscribe,
+    subscribeToPush: subscribe,
+    unsubscribeFromPush: unsubscribe,
     sendTestNotification,
+    requestPermission,
     sendNotification,
   };
 }

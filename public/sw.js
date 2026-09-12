@@ -1,72 +1,80 @@
-/* CANDRA BOT PWA Service Worker — v3 (Web Push & Background Notifications) */
+/* CANDRA BOT PWA Service Worker — push notification + offline shell */
 
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
 
-/* ──────────── Push Event (Diterima dari Web Push Server saat browser tutup) ──────────── */
+/* ──── Web Push Handler ──────────────────────────────────────────────────────── */
 self.addEventListener("push", (event) => {
-  let data = {
+  let payload = {
     title: "CANDRA BOT",
     body: "Ada aktivitas pesanan baru masuk.",
     url: "/dashboard/transactions",
   };
 
-  try {
-    if (event.data) {
-      data = { ...data, ...event.data.json() };
-    }
-  } catch {
-    if (event.data) {
-      data.body = event.data.text();
+  if (event.data) {
+    try {
+      payload = { ...payload, ...JSON.parse(event.data.text()) };
+    } catch {
+      payload.body = event.data.text();
     }
   }
 
-  const title = data.title || "Transaksi Baru Masuk!";
   const options = {
-    body: data.body,
-    icon: data.icon || "/icons/icon-192.png",
-    badge: data.badge || "/icons/icon-192.png",
-    tag: data.tag || `candra-${Date.now()}`,
-    data: data,
-    vibrate: [250, 100, 250, 100, 250],
+    body: payload.body,
+    icon: payload.icon || "/icons/icon-192.png",
+    badge: payload.badge || "/icons/icon-192.png",
+    image: payload.image || undefined,
+    vibrate: [200, 100, 200],
+    tag: payload.tag || "candra-transaction",
     renotify: true,
-    requireInteraction: true,
+    requireInteraction: false,
+    data: { url: payload.url || "/dashboard/transactions", timestamp: Date.now() },
     actions: [
-      { action: "open", title: "Lihat Detail" }
+      { action: "open", title: "Buka Dashboard" },
+      { action: "dismiss", title: "Tutup" },
     ],
   };
 
-  event.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil(
+    self.registration.showNotification(payload.title, options)
+  );
 });
 
-/* ──────────── Notification Click (Saat notifikasi di layar HP diklik) ──────────── */
+/* ──── Notification Click Handler ─────────────────────────────────────────── */
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
+  if (event.action === "dismiss") return;
 
-  const data = event.notification.data || {};
-  const transactionId = data.transactionId || data.trxId;
-  const targetUrl = data.url || (transactionId
-    ? `/dashboard/transactions?edit=${encodeURIComponent(transactionId)}`
-    : "/dashboard/transactions");
+  const targetUrl = (event.notification.data && event.notification.data.url) || "/dashboard/transactions";
+  const origin = self.location.origin;
+  const fullUrl = targetUrl.startsWith("http") ? targetUrl : origin + targetUrl;
 
   event.waitUntil(
-    self.clients
-      .matchAll({ type: "window", includeUncontrolled: true })
-      .then((clientList) => {
-        // Coba fokus ke tab dashboard yang sudah aktif
-        for (const client of clientList) {
-          if (client.url.includes("/dashboard") && "focus" in client) {
-            void client.focus();
-            if ("navigate" in client) {
-              return client.navigate(targetUrl);
-            }
-            return;
-          }
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      // Jika sudah ada tab terbuka → fokus dan navigate
+      for (const client of clientList) {
+        if (client.url.startsWith(origin) && "focus" in client) {
+          client.focus();
+          client.navigate(fullUrl);
+          return;
         }
-        // Buka jendela / tab baru jika browser tertutup
-        if (self.clients.openWindow) {
-          return self.clients.openWindow(targetUrl);
-        }
-      })
+      }
+      // Buka tab baru jika belum terbuka
+      if (self.clients.openWindow) return self.clients.openWindow(fullUrl);
+    })
+  );
+});
+
+/* ──── Push Subscription Change ────────────────────────────────────────────── */
+self.addEventListener("pushsubscriptionchange", (event) => {
+  event.waitUntil(
+    self.registration.pushManager.subscribe({ userVisibleOnly: true })
+      .then((subscription) =>
+        fetch("/api/push/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(subscription.toJSON()),
+        })
+      )
   );
 });

@@ -499,15 +499,52 @@ export default function ProductsPage() {
             </div>}
           </> : <>
             {/* ── List view / expanded card header ── */}
-            <button className="flex min-w-0 flex-1 items-center gap-4 rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-indigo-500" onClick={() => toggleService(service.name)} aria-expanded={isExpanded}>
-              {service.imageUrl ? <img src={service.imageUrl} alt="" className="h-14 w-14 rounded-2xl object-cover" /> : <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600"><Package className="h-6 w-6" /></span>}
-              <span className="min-w-0"><span className="flex items-center gap-2 text-lg font-bold text-slate-950">{isExpanded ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}{service.name}</span><span className="mt-1 block text-sm text-slate-500">{service.categories.length} kategori · {service.variants.length} varian · menu nomor {service.position}</span></span>
+            <button className="flex min-w-0 flex-1 items-center gap-3.5 sm:gap-4 rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-indigo-500" onClick={() => toggleService(service.name)} aria-expanded={isExpanded}>
+              {service.imageUrl ? <img src={service.imageUrl} alt="" className="h-12 w-12 sm:h-14 sm:w-14 shrink-0 rounded-2xl object-cover shadow-sm" /> : <span className="flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600"><Package className="h-6 w-6" /></span>}
+              <span className="min-w-0 flex-1"><span className="flex items-center gap-2 text-base sm:text-lg font-bold text-slate-950">{isExpanded ? <ChevronDown className="h-4 w-4 sm:h-5 sm:w-5 shrink-0 text-slate-400" /> : <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 shrink-0 text-slate-400" />}<span className="truncate">{service.name}</span></span><span className="mt-0.5 block text-xs sm:text-sm text-slate-500">{service.categories.length} kategori · {service.variants.length} varian · menu #{service.position}</span></span>
             </button>
-            {canEdit && <div className="grid grid-cols-[1fr_44px] gap-2 sm:flex sm:items-center">
-              <Button className="h-11 sm:h-8 font-medium text-indigo-700 bg-indigo-50/60 hover:bg-indigo-100/70 border-indigo-200/60" variant="outline" size="sm" onClick={() => openPhotoModal(service)}><Camera className="mr-1.5 h-4 w-4 text-indigo-600" />Ganti Foto</Button>
-              <Button className="h-11 sm:h-8" variant="outline" size="sm" onClick={() => beginCreateCategory(service.name)}><Plus className="mr-1.5 h-4 w-4" />Tambah kategori</Button>
-              <Button className="group h-11 w-11 overflow-hidden shadow-red-200 transition-all hover:-translate-y-0.5 hover:shadow-lg sm:h-9 sm:w-9" variant="destructive" size="icon" onClick={() => removeService(service.name)} aria-label="Hapus layanan"><Trash2 className="h-4 w-4 transition-transform duration-200 group-hover:scale-110 group-hover:-rotate-6" /></Button>
-            </div>}
+            {canEdit && (
+              <div className="flex flex-col gap-2 pt-1 sm:pt-0 sm:flex-row sm:items-center">
+                <Button
+                  className="hidden sm:inline-flex h-8 font-medium text-xs sm:text-sm text-indigo-700 bg-indigo-50/60 hover:bg-indigo-100/70 border-indigo-200/60"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => openPhotoModal(service)}
+                >
+                  <Camera className="mr-1.5 h-3.5 w-3.5 text-indigo-600" />
+                  Ganti Foto
+                </Button>
+                <div className="grid grid-cols-[1fr_44px] gap-2 sm:flex sm:items-center">
+                  <Button
+                    className="h-10 sm:h-8 text-xs sm:text-sm font-semibold"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => beginCreateCategory(service.name)}
+                  >
+                    <Plus className="mr-1.5 h-4 w-4" />
+                    Tambah kategori
+                  </Button>
+                  <Button
+                    className="group h-10 w-11 overflow-hidden shadow-red-200 transition-all hover:-translate-y-0.5 hover:shadow-lg sm:h-8 sm:w-9"
+                    variant="destructive"
+                    size="icon"
+                    onClick={() => removeService(service.name)}
+                    aria-label="Hapus layanan"
+                  >
+                    <Trash2 className="h-4 w-4 transition-transform duration-200 group-hover:scale-110 group-hover:-rotate-6" />
+                  </Button>
+                </div>
+                <Button
+                  className="sm:hidden h-10 w-full font-medium text-xs text-indigo-700 bg-indigo-50/60 hover:bg-indigo-100/70 border-indigo-200/60"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => openPhotoModal(service)}
+                >
+                  <Camera className="mr-1.5 h-3.5 w-3.5 text-indigo-600" />
+                  Ganti Foto
+                </Button>
+              </div>
+            )}
           </>}
         </div>
 

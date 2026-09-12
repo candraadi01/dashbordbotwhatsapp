@@ -10,6 +10,7 @@ import {
   getVisibleNavigation,
 } from "@/components/layout/sidebar";
 import { NotificationCenter } from "@/components/layout/NotificationCenter";
+import { SystemNotificationPrompt } from "@/components/layout/SystemNotificationPrompt";
 import { AuthGuard } from "@/components/layout/AuthGuard";
 import { authService } from "@/services/authService";
 import { UserRole } from "@/types";
@@ -97,6 +98,7 @@ export default function DashboardLayout({
         </header>
 
         <main className="mx-auto w-full max-w-[1480px] flex-1 space-y-6 p-4 sm:p-6 lg:p-8">
+          <SystemNotificationPrompt variant="banner" />
           <AuthGuard>{children}</AuthGuard>
         </main>
       </div>

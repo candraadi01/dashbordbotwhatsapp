@@ -21,6 +21,7 @@ import { usePushNotification } from "@/hooks/usePushNotification";
 import { playNotificationSound } from "@/lib/notificationSound";
 import { TransactionRow } from "@/types";
 import { cn } from "@/lib/utils";
+import { SystemNotificationPrompt } from "./SystemNotificationPrompt";
 
 export interface AppNotification {
   id: string;
@@ -325,6 +326,8 @@ function MobileSheet({
           showClose
         />
 
+        <SystemNotificationPrompt variant="panel" />
+
         <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
           {notifications.length === 0 ? (
             <EmptyState />
@@ -474,8 +477,8 @@ export function NotificationCenter() {
 
       setNotifications((prev) => [notif, ...prev.filter((n) => n.id !== notifId)].slice(0, 30));
 
-      // 1. Kirim desktop notification lokal jika diizinkan di tab browser ini
-      if (cur.pushNotificationEnabled && isGranted) {
+      // 1. Kirim desktop/OS notification lokal jika diizinkan di tab browser ini
+      if ((cur.pushNotificationEnabled || isGranted) && isGranted) {
         sendNotification({
           title: notif.title,
           body: notif.message,
@@ -485,19 +488,16 @@ export function NotificationCenter() {
       }
 
       // 2. SELALU kirim Web Push ke semua HP/perangkat terdaftar di latar belakang
-      // Penting: Tidak boleh dihambat oleh izin lokal `isGranted`, agar HP tetap menerima push
-      if (cur.pushNotificationEnabled) {
-        void fetch("/api/push/send", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: notif.title,
-            body: notif.message,
-            url: `/dashboard/transactions?edit=${encodeURIComponent(notif.transactionId || "")}`,
-            transactionId: notif.transactionId,
-          }),
-        }).catch((err) => console.warn("[NotificationCenter] Web Push dispatch failed:", err));
-      }
+      void fetch("/api/push/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: notif.title,
+          body: notif.message,
+          url: `/dashboard/transactions?edit=${encodeURIComponent(notif.transactionId || "")}`,
+          transactionId: notif.transactionId,
+        }),
+      }).catch((err) => console.warn("[NotificationCenter] Web Push dispatch failed:", err));
 
       if (cur.soundAlert && cur.notificationSound !== "silent") {
         void playNotificationSound(
@@ -555,19 +555,17 @@ export function NotificationCenter() {
           });
 
           // Kirim Web Push ke HP untuk transaksi baru yang terdeteksi via polling
-          if (cur.pushNotificationEnabled) {
-            for (const item of newItems) {
-              void fetch("/api/push/send", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  title: item.title,
-                  body: item.message,
-                  url: `/dashboard/transactions?edit=${encodeURIComponent(item.transactionId || "")}`,
-                  transactionId: item.transactionId,
-                }),
-              }).catch((err) => console.warn("[NotificationCenter Polling] Web Push dispatch failed:", err));
-            }
+          for (const item of newItems) {
+            void fetch("/api/push/send", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                title: item.title,
+                body: item.message,
+                url: `/dashboard/transactions?edit=${encodeURIComponent(item.transactionId || "")}`,
+                transactionId: item.transactionId,
+              }),
+            }).catch((err) => console.warn("[NotificationCenter Polling] Web Push dispatch failed:", err));
           }
 
           if (cur.soundAlert && cur.notificationSound !== "silent") {
@@ -646,6 +644,7 @@ export function NotificationCenter() {
             unreadCount={unreadCount}
             onMarkAll={handleDismissAll}
           />
+          <SystemNotificationPrompt variant="panel" />
           <div className="max-h-[min(65vh,420px)] overflow-y-auto overscroll-contain">
             {notifications.length === 0 ? (
               <EmptyState />

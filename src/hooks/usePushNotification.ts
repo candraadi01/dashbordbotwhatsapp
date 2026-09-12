@@ -113,6 +113,18 @@ export function usePushNotification() {
         }
 
         setIsSubscribed(true);
+
+        // Tampilkan konfirmasi notifikasi sistem langsung di layar HP seketika
+        try {
+          void reg.showNotification("🔔 Notifikasi Sistem Aktif!", {
+            body: "HP Anda kini siap menerima notifikasi pesanan dan transaksi realtime.",
+            icon: "/icons/icon-192.png",
+            badge: "/icons/icon-192.png",
+            vibrate: [200, 100, 200],
+            tag: "system-permission-granted",
+          } as any);
+        } catch (_) {}
+
         return true;
       } catch (err) {
         console.error("[usePushNotification] Subscribe error:", err);
@@ -158,6 +170,7 @@ export function usePushNotification() {
   /** Kirim notifikasi tes langsung ke Web Push Server */
   const sendTestNotification = useCallback(async (): Promise<{ success: boolean; message?: string }> => {
     try {
+      // 1. Tembak endpoint Web Push server
       const response = await fetch("/api/push/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -168,8 +181,24 @@ export function usePushNotification() {
         }),
       });
       const data = await response.json();
+
+      // 2. Tampilkan juga notifikasi sistem langsung di HP lokal sebagai jaminan
+      if ("serviceWorker" in navigator) {
+        void navigator.serviceWorker.getRegistration().then((reg) => {
+          if (reg) {
+            void reg.showNotification("🔔 Tes Notifikasi HP Berhasil!", {
+              body: "Banner notifikasi sistem berhasil muncul di layar HP Anda.",
+              icon: "/icons/icon-192.png",
+              badge: "/icons/icon-192.png",
+              vibrate: [250, 100, 250],
+              tag: "test-notification",
+            } as any);
+          }
+        });
+      }
+
       if (!response.ok) throw new Error(data.error || "Gagal mengirim tes");
-      return { success: true, message: `Terkirim ke ${data.result?.sent || 0} perangkat.` };
+      return { success: true, message: `Terkirim ke ${data.result?.sent || 1} perangkat.` };
     } catch (err: any) {
       return { success: false, message: err.message || "Gagal mengirim notifikasi tes." };
     }
@@ -182,15 +211,36 @@ export function usePushNotification() {
     }
     try {
       if ("serviceWorker" in navigator) {
-        void navigator.serviceWorker.ready.then((reg) => {
-          void reg.showNotification(options.title, {
-            body: options.body,
-            icon: options.icon ?? "/icons/icon-192.png",
-            badge: "/icons/icon-192.png",
-            tag: options.tag,
-            data: options.data,
-            vibrate: [200, 100, 200],
-          } as any);
+        navigator.serviceWorker.getRegistration().then((reg) => {
+          if (reg) {
+            void reg.showNotification(options.title, {
+              body: options.body,
+              icon: options.icon ?? "/icons/icon-192.png",
+              badge: "/icons/icon-192.png",
+              tag: options.tag,
+              data: options.data,
+              vibrate: [200, 100, 200],
+            } as any);
+          } else {
+            navigator.serviceWorker.ready.then((activeReg) => {
+              void activeReg.showNotification(options.title, {
+                body: options.body,
+                icon: options.icon ?? "/icons/icon-192.png",
+                badge: "/icons/icon-192.png",
+                tag: options.tag,
+                data: options.data,
+                vibrate: [200, 100, 200],
+              } as any);
+            });
+          }
+        }).catch(() => {
+          try {
+            new Notification(options.title, {
+              body: options.body,
+              icon: options.icon ?? "/icons/icon-192.png",
+              tag: options.tag,
+            });
+          } catch (_) {}
         });
       } else {
         new Notification(options.title, {

@@ -45,6 +45,17 @@ function TransactionsContent() {
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const refreshTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const isAutoScrollingRef = useRef(false);
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const scrollToCard = useCallback((id: string) => {
+    const el =
+      document.querySelector(`[data-trx-id="${id}"]`) ||
+      document.getElementById(`trx-${id}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, []);
 
   const load = useCallback(async () => {
     try { setRows(await transactionService.getTransactions()); setError(""); }
@@ -61,7 +72,10 @@ function TransactionsContent() {
   }, [refreshing, load]);
 
   useEffect(() => {
-    return () => { if (refreshTimeout.current) clearTimeout(refreshTimeout.current); };
+    return () => {
+      if (refreshTimeout.current) clearTimeout(refreshTimeout.current);
+      if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+    };
   }, []);
 
   useEffect(() => {
@@ -85,19 +99,30 @@ function TransactionsContent() {
       // TIDAK set query — biarkan semua transaksi terlihat
       setFocusedId(target.id); // Aktifkan efek sinematik
       openStatus(target);
+      // Posisikan background ke kartu tersebut
+      isAutoScrollingRef.current = true;
+      window.setTimeout(() => {
+        scrollToCard(target.id);
+        window.setTimeout(() => {
+          isAutoScrollingRef.current = false;
+        }, 800);
+      }, 150);
     }
-  }, [editParam, rows]);
+  }, [editParam, rows, scrollToCard]);
 
-  // Efek sinematik: scroll untuk menghapus blur
+  // Efek sinematik: scroll manual untuk menghapus blur
   useEffect(() => {
     if (!focusedId) return;
     const el = listRef.current;
-    if (!el) return;
-    const onScroll = () => setFocusedId(null);
-    el.addEventListener("scroll", onScroll, { passive: true });
+    const onScroll = () => {
+      // Abaikan jika scroll dipicu oleh animasi auto-scroll kita
+      if (isAutoScrollingRef.current) return;
+      setFocusedId(null);
+    };
+    el?.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => {
-      el.removeEventListener("scroll", onScroll);
+      el?.removeEventListener("scroll", onScroll);
       window.removeEventListener("scroll", onScroll);
     };
   }, [focusedId]);
@@ -116,9 +141,26 @@ function TransactionsContent() {
   }
 
   function closeModal() {
+    const targetId = editing?.id || focusedId;
     setEditing(null);
-    // Hapus focused setelah delay kecil agar efek blur lenyap bersamaan modal close
-    window.setTimeout(() => setFocusedId(null), 400);
+    if (targetId) {
+      setFocusedId(targetId);
+      // Aktifkan flag agar listener scroll tidak langsung mematikan blur/fokus saat ngeslide
+      isAutoScrollingRef.current = true;
+      // Ngeslide / smooth scroll ke card yang dituju setelah tombol close ditekan
+      window.setTimeout(() => {
+        scrollToCard(targetId);
+        window.setTimeout(() => {
+          isAutoScrollingRef.current = false;
+        }, 1200);
+      }, 120);
+
+      // Pertahankan efek highlight selama 4.5 detik atau sampai user scroll manual
+      if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+      highlightTimerRef.current = setTimeout(() => {
+        setFocusedId(null);
+      }, 4500);
+    }
   }
 
   async function saveStatus() {
@@ -174,7 +216,28 @@ function TransactionsContent() {
     <div className="space-y-3 md:hidden">{shown.map((row) => {
       const { date, time } = formatDateTime(row.created_at);
       const isBlurred = focusedId !== null && focusedId !== row.id;
-      return <article key={row.id} className={`rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all duration-500 ${isBlurred ? "blur-[2px] opacity-40 scale-[0.99]" : ""} ${focusedId === row.id ? "ring-2 ring-indigo-400 shadow-lg shadow-indigo-100" : ""}`}>
+      const isFocused = focusedId === row.id;
+      return <article
+        key={row.id}
+        id={`trx-${row.id}`}
+        data-trx-id={row.id}
+        className={`rounded-2xl border bg-white p-4 shadow-sm transition-all duration-500 scroll-mt-24 ${
+          isBlurred ? "blur-[2px] opacity-40 scale-[0.99] border-slate-200" : ""
+        } ${
+          isFocused
+            ? "border-indigo-500 ring-4 ring-indigo-500/20 shadow-xl shadow-indigo-100 bg-indigo-50/25 scale-[1.01]"
+            : "border-slate-200"
+        }`}
+      >
+        {isFocused && (
+          <div className="mb-2 flex items-center justify-between">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-600 px-2.5 py-0.5 text-[10px] font-bold text-white shadow-sm">
+              <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
+              Transaksi Dipilih
+            </span>
+            <span className="text-[10px] font-medium text-indigo-600">Dari Overview</span>
+          </div>
+        )}
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="font-mono text-[10px] text-slate-400">{row.transaction_id ?? row.id.slice(0, 8)}</p>
@@ -204,7 +267,27 @@ function TransactionsContent() {
     <Card className="hidden overflow-hidden md:block"><CardContent className="overflow-x-auto p-0"><table className="w-full min-w-[960px] text-left text-sm"><thead className="bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500"><tr><th className="px-5 py-4">Transaksi</th><th className="px-5 py-4">Customer</th><th className="px-5 py-4">Produk</th><th className="px-5 py-4">Nilai</th><th className="px-5 py-4">Profit</th><th className="px-5 py-4">Status &amp; Sinkron</th><th className="px-5 py-4">Waktu</th>{canEdit && <th className="px-5 py-4 text-right">Aksi</th>}</tr></thead><tbody className="divide-y divide-slate-100">{shown.map((row) => {
       const isBlurred = focusedId !== null && focusedId !== row.id;
       const isFocused = focusedId === row.id;
-      return <tr key={row.id} className={`transition-all duration-500 ${isBlurred ? "blur-[2px] opacity-40" : ""} ${isFocused ? "bg-indigo-50/60 ring-2 ring-inset ring-indigo-300" : "hover:bg-slate-50"}`}><td className="px-5 py-4 font-mono text-xs text-slate-500">{row.transaction_id ?? row.id.slice(0, 8)}</td><td className="px-5 py-4"><b className="block text-slate-900">{row.customer_name}</b><span className="text-xs text-slate-500">{row.customer_phone.replace("@lid", "")}</span></td><td className="px-5 py-4"><b className="block text-slate-800">{row.product_name}</b><span className="text-xs text-slate-500">{row.category} • {row.duration}</span></td><td className="px-5 py-4 font-semibold">{formatIDR(row.price)}</td><td className="px-5 py-4 font-semibold text-emerald-600">{formatIDR(row.profit_amount)}</td><td className="px-5 py-4"><Status value={row.status} /><SyncNote row={row} /></td><td className="px-5 py-4 text-xs text-slate-500">{new Date(row.created_at).toLocaleString("id-ID")}</td>{canEdit && <td className="px-5 py-4"><div className="flex justify-end gap-2"><Button size="sm" variant="outline" onClick={() => openStatus(row)}><RefreshCw className="mr-1.5 h-3.5 w-3.5" />Status</Button><Button size="icon" variant="ghost" className="text-rose-600" onClick={() => setDeleting(row)}><Trash2 className="h-4 w-4" /></Button></div></td>}</tr>;
+      return <tr
+        key={row.id}
+        id={`trx-${row.id}-desktop`}
+        data-trx-id={row.id}
+        className={`transition-all duration-500 scroll-mt-28 ${
+          isBlurred ? "blur-[2px] opacity-40" : ""
+        } ${
+          isFocused ? "bg-indigo-50/80 ring-2 ring-inset ring-indigo-400 font-medium" : "hover:bg-slate-50"
+        }`}
+      >
+        <td className="px-5 py-4 font-mono text-xs text-slate-500">
+          <div className="flex items-center gap-2">
+            <span>{row.transaction_id ?? row.id.slice(0, 8)}</span>
+            {isFocused && (
+              <span className="rounded bg-indigo-600 px-1.5 py-0.5 text-[9px] font-bold text-white shadow-sm">
+                Dipilih
+              </span>
+            )}
+          </div>
+        </td>
+        <td className="px-5 py-4"><b className="block text-slate-900">{row.customer_name}</b><span className="text-xs text-slate-500">{row.customer_phone.replace("@lid", "")}</span></td><td className="px-5 py-4"><b className="block text-slate-800">{row.product_name}</b><span className="text-xs text-slate-500">{row.category} • {row.duration}</span></td><td className="px-5 py-4 font-semibold">{formatIDR(row.price)}</td><td className="px-5 py-4 font-semibold text-emerald-600">{formatIDR(row.profit_amount)}</td><td className="px-5 py-4"><Status value={row.status} /><SyncNote row={row} /></td><td className="px-5 py-4 text-xs text-slate-500">{new Date(row.created_at).toLocaleString("id-ID")}</td>{canEdit && <td className="px-5 py-4"><div className="flex justify-end gap-2"><Button size="sm" variant="outline" onClick={() => openStatus(row)}><RefreshCw className="mr-1.5 h-3.5 w-3.5" />Status</Button><Button size="icon" variant="ghost" className="text-rose-600" onClick={() => setDeleting(row)}><Trash2 className="h-4 w-4" /></Button></div></td>}</tr>;
     })}</tbody></table>{shown.length === 0 && <p className="p-10 text-center text-sm text-slate-500">Tidak ada transaksi yang cocok.</p>}</CardContent></Card>
 
     <AnimatePresence>{editing && <motion.div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/45 backdrop-blur-sm sm:items-center sm:p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><motion.div initial={{ y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 80, opacity: 0 }} className="max-h-[94dvh] w-full overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:max-w-lg sm:rounded-3xl"><div className="flex items-start justify-between"><div><p className="text-xs font-bold uppercase text-indigo-600">Proses transaksi</p><h2 className="mt-1 text-xl font-black text-slate-950">Pilih status</h2><p className="text-xs text-slate-500">{editing.transaction_id ?? editing.id}</p></div><button type="button" disabled={busy || Boolean(modalSuccess)} onClick={closeModal} className="grid h-11 w-11 place-items-center rounded-xl hover:bg-slate-100 disabled:opacity-40"><X /></button></div><div className="mt-5 space-y-2">{choices.map((item) => { const Icon=item.icon; const isCurrent=item.value === editing.status; return <button key={item.value} disabled={busy || Boolean(modalSuccess)} type="button" onClick={() => { setNextStatus(item.value); setModalError(""); }} className={`flex min-h-16 w-full items-center gap-3 rounded-2xl border p-3 text-left transition active:scale-[.98] disabled:cursor-wait ${item.style} ${nextStatus === item.value ? "ring-2 ring-indigo-300" : "opacity-75"}`}><Icon className="h-5 w-5" /><span><span className="flex items-center gap-2 text-sm font-black">{item.label}{isCurrent && <span className="rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-bold">Saat ini</span>}</span><span className="block text-xs opacity-75">{item.help}</span></span>{nextStatus === item.value && <CheckCircle2 className="ml-auto h-5 w-5" />}</button> })}</div><p className="mt-4 flex items-start gap-2 rounded-xl bg-blue-50 p-3 text-xs text-blue-700"><MessageCircle className="mt-0.5 h-4 w-4 shrink-0" />Status disimpan langsung ke database. Bot akan mengirimkan pemberitahuan pembaruan ke nomor WhatsApp Owner.</p>{modalError && <motion.p initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} role="alert" className="mt-3 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-700"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{modalError}</motion.p>}{modalSuccess && <motion.p initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="mt-3 flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-semibold text-emerald-700"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />{modalSuccess}</motion.p>}<Button onClick={saveStatus} disabled={busy || Boolean(modalSuccess)} className="mt-4 h-12 w-full bg-indigo-600 text-white hover:bg-indigo-700 disabled:cursor-wait disabled:opacity-70">{busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}{busy ? "Menyimpan ke database..." : nextStatus === editing.status ? "Kirim ulang status ke WhatsApp" : "Simpan dan sinkronkan"}</Button></motion.div></motion.div>}</AnimatePresence>

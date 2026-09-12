@@ -122,7 +122,7 @@ function NotifItem({
     <div
       onClick={() => onClick?.(notification.transactionId)}
       className={cn(
-        "group relative flex flex-col gap-2.5 border-b border-slate-100 p-4 text-left transition-colors active:bg-slate-100 cursor-pointer",
+        "group relative flex flex-col gap-2 border-b border-slate-100 p-3.5 sm:p-4 text-left transition-colors active:bg-slate-100 cursor-pointer",
         !notification.read ? "bg-indigo-50/40 hover:bg-indigo-50/70" : "hover:bg-slate-50"
       )}
     >
@@ -132,22 +132,22 @@ function NotifItem({
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
-            <span className="flex items-center gap-2 text-sm font-bold text-slate-900">
-              {notification.title}
+            <span className="flex items-center gap-1.5 text-xs sm:text-sm font-bold text-slate-900 truncate">
+              <span className="truncate">{notification.title}</span>
               {!notification.read && <span className="h-2 w-2 shrink-0 rounded-full bg-indigo-600 animate-pulse" />}
             </span>
             <span className="flex items-center gap-1 text-[10px] font-medium text-slate-400 shrink-0">
               <Clock className="h-3 w-3" /> {getTimeAgo(notification.time, now)}
             </span>
           </div>
-          <p className="mt-1 text-xs leading-relaxed text-slate-600 font-medium">
+          <p className="mt-0.5 text-xs leading-relaxed text-slate-600 font-medium break-words">
             {notification.message}
           </p>
         </div>
       </div>
 
       {/* Action footer: field kecil "Tandai telah dibaca" & link detail */}
-      <div className="flex items-center justify-between pl-12 pt-0.5">
+      <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100/80 mt-0.5">
         <span className="text-[11px] font-bold text-indigo-600 group-hover:underline flex items-center gap-1">
           <span>Ubah status</span>
           <ExternalLink className="h-3 w-3" />
@@ -158,11 +158,11 @@ function NotifItem({
             e.stopPropagation();
             onDismiss(notification.id);
           }}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-700 shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 active:scale-95"
+          className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-700 shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 active:scale-95"
           title="Tandai telah dibaca dan hapus notifikasi ini"
         >
           <Check className="h-3.5 w-3.5 text-emerald-600" />
-          <span>Tandai telah dibaca</span>
+          <span>Tandai dibaca</span>
         </button>
       </div>
     </div>
@@ -426,9 +426,14 @@ export function NotificationCenter() {
     };
   }, []);
 
+  const settingsRef = useRef(settings);
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
+
   // Realtime subscription via authenticated Supabase
   useEffect(() => {
-    if (!isLoaded || !settings.notificationEnabled) return;
+    if (!isLoaded) return;
 
     const channel = transactionRealtimeService.subscribeTransactions((payload) => {
       const isInsert = payload.eventType === "INSERT";
@@ -437,14 +442,19 @@ export function NotificationCenter() {
 
       const data = payload.new as TransactionRow;
       const oldData = payload.old as Partial<TransactionRow>;
+      if (!data || !data.id) return;
+
+      const cur = settingsRef.current;
+      if (!cur.notificationEnabled) return;
+
       const status = data.status;
 
-      if (isInsert && !settings.notificationNewTransaction) return;
+      if (isInsert && !cur.notificationNewTransaction) return;
       if (isUpdate) {
         if (oldData?.status === status) return;
-        if (status === "success" && !settings.notificationStatusSuccess) return;
-        if (status === "pending" && !settings.notificationStatusPending) return;
-        if (status === "cancelled" && !settings.notificationStatusCancelled) return;
+        if (status === "success" && !cur.notificationStatusSuccess) return;
+        if (status === "pending" && !cur.notificationStatusPending) return;
+        if (status === "cancelled" && !cur.notificationStatusCancelled) return;
       }
 
       const notifId = `tx:${data.id}:${status}:${data.updated_at || data.created_at}`;
@@ -464,16 +474,19 @@ export function NotificationCenter() {
 
       setNotifications((prev) => [notif, ...prev.filter((n) => n.id !== notifId)].slice(0, 30));
 
-      // Kirim notifikasi OS jika diaktifkan dan izin sudah diberikan
-      if (settings.pushNotificationEnabled && isGranted) {
+      // 1. Kirim desktop notification lokal jika diizinkan di tab browser ini
+      if (cur.pushNotificationEnabled && isGranted) {
         sendNotification({
           title: notif.title,
           body: notif.message,
           tag: notifId,
           data: { transactionId: notif.transactionId },
         });
+      }
 
-        // Kirim Web Push ke perangkat HP di latar belakang (walau browser HP ditutup)
+      // 2. SELALU kirim Web Push ke semua HP/perangkat terdaftar di latar belakang
+      // Penting: Tidak boleh dihambat oleh izin lokal `isGranted`, agar HP tetap menerima push
+      if (cur.pushNotificationEnabled) {
         void fetch("/api/push/send", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -483,38 +496,30 @@ export function NotificationCenter() {
             url: `/dashboard/transactions?edit=${encodeURIComponent(notif.transactionId || "")}`,
             transactionId: notif.transactionId,
           }),
-        }).catch(() => {});
+        }).catch((err) => console.warn("[NotificationCenter] Web Push dispatch failed:", err));
       }
 
-      if (settings.soundAlert && settings.notificationSound !== "silent") {
+      if (cur.soundAlert && cur.notificationSound !== "silent") {
         void playNotificationSound(
-          settings.notificationSound,
-          settings.notificationVolume,
-          settings.customNotificationAudio
+          cur.notificationSound,
+          cur.notificationVolume,
+          cur.customNotificationAudio
         ).catch((e) => console.warn("Could not play notification sound", e));
       }
     });
 
     return () => transactionRealtimeService.unsubscribe(channel);
-  }, [
-    isLoaded,
-    settings.notificationEnabled,
-    settings.notificationNewTransaction,
-    settings.notificationStatusSuccess,
-    settings.notificationStatusPending,
-    settings.notificationStatusCancelled,
-    settings.soundAlert,
-    settings.notificationSound,
-    settings.notificationVolume,
-    settings.customNotificationAudio,
-  ]);
+  }, [isLoaded, isGranted, sendNotification]);
 
   // Polling fallback every 6 seconds to guarantee real-time delivery
   useEffect(() => {
-    if (!isLoaded || !settings.notificationEnabled) return;
+    if (!isLoaded) return;
 
     const interval = setInterval(async () => {
       try {
+        const cur = settingsRef.current;
+        if (!cur.notificationEnabled) return;
+
         const { data, error } = await supabase
           .from("transactions")
           .select("*")
@@ -549,11 +554,27 @@ export function NotificationCenter() {
             return [...toAdd, ...prev].slice(0, 30);
           });
 
-          if (settings.soundAlert && settings.notificationSound !== "silent") {
+          // Kirim Web Push ke HP untuk transaksi baru yang terdeteksi via polling
+          if (cur.pushNotificationEnabled) {
+            for (const item of newItems) {
+              void fetch("/api/push/send", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  title: item.title,
+                  body: item.message,
+                  url: `/dashboard/transactions?edit=${encodeURIComponent(item.transactionId || "")}`,
+                  transactionId: item.transactionId,
+                }),
+              }).catch((err) => console.warn("[NotificationCenter Polling] Web Push dispatch failed:", err));
+            }
+          }
+
+          if (cur.soundAlert && cur.notificationSound !== "silent") {
             void playNotificationSound(
-              settings.notificationSound,
-              settings.notificationVolume,
-              settings.customNotificationAudio
+              cur.notificationSound,
+              cur.notificationVolume,
+              cur.customNotificationAudio
             ).catch(() => {});
           }
         }
@@ -563,14 +584,7 @@ export function NotificationCenter() {
     }, 6000);
 
     return () => clearInterval(interval);
-  }, [
-    isLoaded,
-    settings.notificationEnabled,
-    settings.soundAlert,
-    settings.notificationSound,
-    settings.notificationVolume,
-    settings.customNotificationAudio,
-  ]);
+  }, [isLoaded]);
 
   // Dismiss a single notification: saves to localStorage and immediately removes from state
   const handleDismissOne = useCallback((id: string) => {

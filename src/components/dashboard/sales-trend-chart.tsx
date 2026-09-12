@@ -35,9 +35,9 @@ function TrendTooltip({ active, payload, label }: { active?: boolean; payload?: 
 
 export function SalesTrendChart({ data }: { data: DailyDataPoint[] }) {
   return (
-    <div className="h-[260px] w-full sm:h-[300px]">
+    <div className="h-[240px] w-full sm:h-[300px] overflow-hidden">
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={data} margin={{ top: 10, right: 8, left: -14, bottom: 0 }}>
+        <AreaChart data={data} margin={{ top: 8, right: 4, left: -20, bottom: 0 }}>
           <defs>
             <linearGradient id="revenueFill" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.24} />
@@ -49,8 +49,8 @@ export function SalesTrendChart({ data }: { data: DailyDataPoint[] }) {
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#e2e8f0" />
-          <XAxis dataKey="label" axisLine={false} tickLine={false} minTickGap={28} tick={{ fill: "#94a3b8", fontSize: 11 }} />
-          <YAxis axisLine={false} tickLine={false} width={52} tickFormatter={compactCurrency} tick={{ fill: "#94a3b8", fontSize: 11 }} />
+          <XAxis dataKey="label" axisLine={false} tickLine={false} minTickGap={22} tick={{ fill: "#94a3b8", fontSize: 10 }} />
+          <YAxis axisLine={false} tickLine={false} width={46} tickFormatter={compactCurrency} tick={{ fill: "#94a3b8", fontSize: 10 }} />
           <Tooltip content={<TrendTooltip />} />
           <Area type="monotone" dataKey="revenue" name="Omzet" stroke="#4f46e5" strokeWidth={2.5} fill="url(#revenueFill)" />
           <Area type="monotone" dataKey="profit" name="Profit" stroke="#10b981" strokeWidth={2.5} fill="url(#profitFill)" />

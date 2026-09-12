@@ -55,18 +55,18 @@ export function OverviewControls({
   const isMorePeriod = moreOptions.some((option) => option.value === period);
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-indigo-50 text-indigo-600">
-            <CalendarDays className="h-5 w-5" />
+    <section className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm sm:p-5">
+      <div className="flex flex-col gap-3.5 sm:gap-4 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+          <span className="grid h-9 w-9 sm:h-11 sm:w-11 shrink-0 place-items-center rounded-xl sm:rounded-2xl bg-indigo-50 text-indigo-600">
+            <CalendarDays className="h-4 w-4 sm:h-5 sm:w-5" />
           </span>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h2 className="text-sm font-bold text-slate-950">Periode laporan</h2>
-              {isRefreshing && <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-500" />}
+              <h2 className="text-xs sm:text-sm font-bold text-slate-950">Periode laporan</h2>
+              {isRefreshing && <Loader2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 animate-spin text-indigo-500" />}
             </div>
-            <p className="mt-0.5 truncate text-xs font-medium text-indigo-600">
+            <p className="mt-0.5 truncate text-[11px] sm:text-xs font-medium text-indigo-600">
               {displayDate(displayStartDate)} – {displayDate(displayEndDate)}
             </p>
           </div>
@@ -80,25 +80,25 @@ export function OverviewControls({
                 key={option.value}
                 type="button"
                 onClick={() => onPeriodChange(option.value)}
-                className={`min-h-12 rounded-xl border px-3 text-left transition-all active:scale-[0.98] ${
+                className={`min-h-11 sm:min-h-12 rounded-xl border px-2.5 sm:px-3 py-1.5 sm:py-2 text-left transition-all active:scale-[0.98] ${
                   active
                     ? "border-indigo-600 bg-indigo-600 text-white shadow-md shadow-indigo-200"
                     : "border-slate-200 bg-white text-slate-700 hover:border-indigo-200 hover:bg-indigo-50"
                 }`}
               >
-                <span className="block text-sm font-bold">{option.label}</span>
-                <span className={`block text-[11px] ${active ? "text-indigo-100" : "text-slate-400"}`}>{option.hint}</span>
+                <span className="block truncate text-xs sm:text-sm font-bold">{option.label}</span>
+                <span className={`block truncate text-[10px] sm:text-[11px] ${active ? "text-indigo-100" : "text-slate-400"}`}>{option.hint}</span>
               </button>
             );
           })}
 
-          <label className={`relative col-span-2 min-h-12 rounded-xl border transition-colors sm:col-span-1 ${isMorePeriod ? "border-indigo-600 bg-indigo-50" : "border-slate-200 bg-white"}`}>
-            <span className="pointer-events-none absolute left-3 top-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Lainnya</span>
+          <label className={`relative col-span-2 min-h-11 sm:min-h-12 rounded-xl border transition-colors sm:col-span-1 ${isMorePeriod ? "border-indigo-600 bg-indigo-50" : "border-slate-200 bg-white"}`}>
+            <span className="pointer-events-none absolute left-3 top-1 text-[9px] sm:text-[10px] font-semibold uppercase tracking-wide text-slate-400">Lainnya</span>
             <select
               aria-label="Pilih periode lainnya"
               value={isMorePeriod ? period : ""}
               onChange={(event) => onPeriodChange(event.target.value as PeriodFilter)}
-              className="h-full min-h-12 w-full appearance-none bg-transparent px-3 pb-1 pt-4 pr-8 text-sm font-bold text-slate-800 outline-none"
+              className="h-full min-h-11 sm:min-h-12 w-full appearance-none bg-transparent px-3 pb-1 pt-3.5 sm:pt-4 pr-8 text-xs sm:text-sm font-bold text-slate-800 outline-none"
             >
               <option value="" disabled>Pilih periode</option>
               {moreOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}

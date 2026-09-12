@@ -445,12 +445,12 @@ export default function ProductsPage() {
       </div>
     </div>
 
-    <div className={viewMode === "grid" ? "grid grid-cols-2 gap-3 md:grid-cols-2 xl:grid-cols-3" : "space-y-5"}>{shown.map((service) => {
+    <div className={viewMode === "grid" ? "grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-2 xl:grid-cols-3" : "space-y-4 sm:space-y-5"}>{shown.map((service) => {
       const isExpanded = query.trim().length > 0 || expandedServices.has(service.name);
       const compactGrid = viewMode === "grid" && !isExpanded;
       return <Card key={service.name} className={`overflow-hidden border-slate-200 shadow-sm transition-all duration-300 ${viewMode === "grid" && isExpanded ? "col-span-full" : ""}`}>
         <div className="h-1.5 bg-gradient-to-r from-indigo-500 via-cyan-400 to-emerald-400" />
-        <div className={`flex flex-col gap-4 ${compactGrid ? "" : "p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between"}`}>
+        <div className={`flex flex-col gap-3 sm:gap-4 ${compactGrid ? "" : "p-3.5 sm:p-5 lg:flex-row lg:items-center lg:justify-between"}`}>
           {/* ── Compact grid card (mobile-friendly with large image) ── */}
           {compactGrid ? <>
             <button
@@ -469,39 +469,39 @@ export default function ProductsPage() {
                   {/* Gradient overlay for readability */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
                   {/* Menu badge on image */}
-                  <span className="absolute left-2.5 top-2.5 rounded-lg bg-white/90 px-2 py-0.5 text-[10px] font-bold text-indigo-700 shadow-sm backdrop-blur-sm">
+                  <span className="absolute left-2 top-2 rounded-lg bg-white/95 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-bold text-indigo-700 shadow-sm backdrop-blur-sm">
                     Menu #{service.position}
                   </span>
                 </div>
               ) : (
                 <div className="relative flex w-full items-center justify-center bg-gradient-to-br from-indigo-50 via-indigo-100 to-blue-50" style={{ aspectRatio: "16/10" }}>
-                  <Package className="h-12 w-12 text-indigo-300" />
-                  <span className="absolute left-2.5 top-2.5 rounded-lg bg-white/90 px-2 py-0.5 text-[10px] font-bold text-indigo-700 shadow-sm">
+                  <Package className="h-10 w-10 sm:h-12 sm:w-12 text-indigo-300" />
+                  <span className="absolute left-2 top-2 rounded-lg bg-white/95 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-bold text-indigo-700 shadow-sm">
                     Menu #{service.position}
                   </span>
                 </div>
               )}
               {/* Text info */}
-              <div className="px-3 pb-1 pt-3">
-                <span className="flex items-center gap-1.5 text-base font-black text-slate-950">
-                  {isExpanded ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
-                  {service.name}
+              <div className="px-2.5 pb-1 pt-2 sm:px-3 sm:pt-3">
+                <span className="flex items-center gap-1 text-sm sm:text-base font-black text-slate-950 truncate">
+                  {isExpanded ? <ChevronDown className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />}
+                  <span className="truncate">{service.name}</span>
                 </span>
-                <span className="mt-1 block text-xs text-slate-500">{service.categories.length} kategori · {service.variants.length} varian</span>
+                <span className="mt-0.5 block truncate text-[11px] sm:text-xs text-slate-500">{service.categories.length} kat · {service.variants.length} varian</span>
               </div>
             </button>
-            {canEdit && <div className="flex flex-col gap-2 px-3 pb-3">
-              <div className="grid grid-cols-[1fr_44px] gap-2">
-                <Button className="h-10 sm:h-8" variant="outline" size="sm" onClick={() => beginCreateCategory(service.name)}><Plus className="mr-1.5 h-4 w-4" />Kategori</Button>
-                <Button className="group h-10 w-11 overflow-hidden shadow-red-200 transition-all hover:-translate-y-0.5 hover:shadow-lg sm:h-8 sm:w-9" variant="destructive" size="icon" onClick={() => removeService(service.name)} aria-label="Hapus layanan"><Trash2 className="h-4 w-4 transition-transform duration-200 group-hover:scale-110 group-hover:-rotate-6" /></Button>
+            {canEdit && <div className="flex flex-col gap-1.5 px-2.5 pb-2.5 sm:px-3 sm:pb-3">
+              <div className="grid grid-cols-[1fr_38px] sm:grid-cols-[1fr_44px] gap-1.5 sm:gap-2">
+                <Button className="h-8 sm:h-8 text-xs font-semibold px-2" variant="outline" size="sm" onClick={() => beginCreateCategory(service.name)}><Plus className="mr-1 h-3.5 w-3.5" />Kategori</Button>
+                <Button className="group h-8 w-9 sm:w-11 overflow-hidden shadow-red-200 transition-all hover:-translate-y-0.5 hover:shadow-lg" variant="destructive" size="icon" onClick={() => removeService(service.name)} aria-label="Hapus layanan"><Trash2 className="h-3.5 w-3.5 transition-transform duration-200 group-hover:scale-110" /></Button>
               </div>
-              <Button className="h-9 sm:h-8 w-full font-medium text-indigo-700 bg-indigo-50/60 hover:bg-indigo-100/70 border-indigo-200/60" variant="outline" size="sm" onClick={() => openPhotoModal(service)}><Camera className="mr-1.5 h-3.5 w-3.5 text-indigo-600" />Ganti Foto</Button>
+              <Button className="h-8 w-full font-medium text-xs text-indigo-700 bg-indigo-50/60 hover:bg-indigo-100/70 border-indigo-200/60" variant="outline" size="sm" onClick={() => openPhotoModal(service)}><Camera className="mr-1.5 h-3.5 w-3.5 text-indigo-600" />Ganti Foto</Button>
             </div>}
           </> : <>
             {/* ── List view / expanded card header ── */}
-            <button className="flex min-w-0 flex-1 items-center gap-3.5 sm:gap-4 rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-indigo-500" onClick={() => toggleService(service.name)} aria-expanded={isExpanded}>
-              {service.imageUrl ? <img src={service.imageUrl} alt="" className="h-12 w-12 sm:h-14 sm:w-14 shrink-0 rounded-2xl object-cover shadow-sm" /> : <span className="flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600"><Package className="h-6 w-6" /></span>}
-              <span className="min-w-0 flex-1"><span className="flex items-center gap-2 text-base sm:text-lg font-bold text-slate-950">{isExpanded ? <ChevronDown className="h-4 w-4 sm:h-5 sm:w-5 shrink-0 text-slate-400" /> : <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 shrink-0 text-slate-400" />}<span className="truncate">{service.name}</span></span><span className="mt-0.5 block text-xs sm:text-sm text-slate-500">{service.categories.length} kategori · {service.variants.length} varian · menu #{service.position}</span></span>
+            <button className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4 rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-indigo-500" onClick={() => toggleService(service.name)} aria-expanded={isExpanded}>
+              {service.imageUrl ? <img src={service.imageUrl} alt="" className="h-11 w-11 sm:h-14 sm:w-14 shrink-0 rounded-xl sm:rounded-2xl object-cover shadow-sm" /> : <span className="flex h-11 w-11 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-xl sm:rounded-2xl bg-indigo-50 text-indigo-600"><Package className="h-5 w-5 sm:h-6 sm:w-6" /></span>}
+              <span className="min-w-0 flex-1"><span className="flex items-center gap-1.5 sm:gap-2 text-sm sm:text-lg font-bold text-slate-950">{isExpanded ? <ChevronDown className="h-4 w-4 sm:h-5 sm:w-5 shrink-0 text-slate-400" /> : <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 shrink-0 text-slate-400" />}<span className="truncate">{service.name}</span></span><span className="mt-0.5 block truncate text-[11px] sm:text-sm text-slate-500">{service.categories.length} kategori · {service.variants.length} varian · menu #{service.position}</span></span>
             </button>
             {canEdit && (
               <div className="flex flex-col gap-2 pt-1 sm:pt-0 sm:flex-row sm:items-center">

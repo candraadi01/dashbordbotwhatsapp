@@ -238,58 +238,58 @@ export default function ReportsPage() {
       {!isLoading && data && (
         <>
           {/* Summary Cards */}
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            <Card className="border-slate-200 bg-white backdrop-blur-xl">
-              <CardContent className="p-6">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="text-sm font-medium text-slate-400">Total Revenue</p>
-                    <h3 className="text-2xl font-bold text-slate-950 mt-1">{formatIDR(data.summary.totalRevenue)}</h3>
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-5 lg:grid-cols-4">
+            <Card className="border-slate-200 bg-white backdrop-blur-xl shadow-xs">
+              <CardContent className="p-3.5 sm:p-6">
+                <div className="flex justify-between items-start gap-1">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] sm:text-sm font-medium text-slate-400 truncate">Total Revenue</p>
+                    <h3 className="text-base min-[380px]:text-lg sm:text-2xl font-bold text-slate-950 mt-1 truncate" title={formatIDR(data.summary.totalRevenue)}>{formatIDR(data.summary.totalRevenue)}</h3>
                   </div>
-                  <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                    <Wallet className="h-5 w-5" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-slate-200 bg-white backdrop-blur-xl">
-              <CardContent className="p-6">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="text-sm font-medium text-slate-400">Total Profit</p>
-                    <h3 className="text-2xl font-bold text-emerald-400 mt-1">{formatIDR(data.summary.totalProfit)}</h3>
-                  </div>
-                  <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                    <TrendingUp className="h-5 w-5" />
+                  <div className="p-1.5 sm:p-2 rounded-lg bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 shrink-0">
+                    <Wallet className="h-4 w-4 sm:h-5 sm:w-5" />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-slate-200 bg-white backdrop-blur-xl">
-              <CardContent className="p-6">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="text-sm font-medium text-slate-400">Total Transaction</p>
-                    <h3 className="text-2xl font-bold text-slate-950 mt-1">{data.summary.totalTransaction} <span className="text-sm font-normal text-slate-500">sukses</span></h3>
+            <Card className="border-slate-200 bg-white backdrop-blur-xl shadow-xs">
+              <CardContent className="p-3.5 sm:p-6">
+                <div className="flex justify-between items-start gap-1">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] sm:text-sm font-medium text-slate-400 truncate">Total Profit</p>
+                    <h3 className="text-base min-[380px]:text-lg sm:text-2xl font-bold text-emerald-600 mt-1 truncate" title={formatIDR(data.summary.totalProfit)}>{formatIDR(data.summary.totalProfit)}</h3>
                   </div>
-                  <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                    <ShoppingBag className="h-5 w-5" />
+                  <div className="p-1.5 sm:p-2 rounded-lg bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 shrink-0">
+                    <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5" />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-slate-200 bg-white backdrop-blur-xl">
-              <CardContent className="p-6">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="text-sm font-medium text-slate-400">New Customer</p>
-                    <h3 className="text-2xl font-bold text-pink-400 mt-1">+{data.summary.newCustomerCount}</h3>
+            <Card className="border-slate-200 bg-white backdrop-blur-xl shadow-xs">
+              <CardContent className="p-3.5 sm:p-6">
+                <div className="flex justify-between items-start gap-1">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] sm:text-sm font-medium text-slate-400 truncate">Total Transaction</p>
+                    <h3 className="text-base min-[380px]:text-lg sm:text-2xl font-bold text-slate-950 mt-1 truncate">{data.summary.totalTransaction} <span className="text-[11px] sm:text-sm font-normal text-slate-500">sukses</span></h3>
                   </div>
-                  <div className="p-2 rounded-lg bg-pink-500/10 text-pink-400 border border-pink-500/20">
-                    <Users className="h-5 w-5" />
+                  <div className="p-1.5 sm:p-2 rounded-lg bg-blue-500/10 text-blue-600 border border-blue-500/20 shrink-0">
+                    <ShoppingBag className="h-4 w-4 sm:h-5 sm:w-5" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-slate-200 bg-white backdrop-blur-xl shadow-xs">
+              <CardContent className="p-3.5 sm:p-6">
+                <div className="flex justify-between items-start gap-1">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] sm:text-sm font-medium text-slate-400 truncate">New Customer</p>
+                    <h3 className="text-base min-[380px]:text-lg sm:text-2xl font-bold text-pink-600 mt-1 truncate">+{data.summary.newCustomerCount}</h3>
+                  </div>
+                  <div className="p-1.5 sm:p-2 rounded-lg bg-pink-500/10 text-pink-600 border border-pink-500/20 shrink-0">
+                    <Users className="h-4 w-4 sm:h-5 sm:w-5" />
                   </div>
                 </div>
               </CardContent>

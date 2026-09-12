@@ -221,7 +221,7 @@ function TransactionsContent() {
         key={row.id}
         id={`trx-${row.id}`}
         data-trx-id={row.id}
-        className={`rounded-2xl border bg-white p-4 shadow-sm transition-all duration-500 scroll-mt-24 ${
+        className={`rounded-2xl border bg-white p-3.5 sm:p-4 shadow-sm transition-all duration-500 scroll-mt-24 ${
           isBlurred ? "blur-[2px] opacity-40 scale-[0.99] border-slate-200" : ""
         } ${
           isFocused
@@ -238,28 +238,28 @@ function TransactionsContent() {
             <span className="text-[10px] font-medium text-indigo-600">Dari Overview</span>
           </div>
         )}
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
+        <div className="flex items-start justify-between gap-2.5">
+          <div className="min-w-0 flex-1">
             <p className="font-mono text-[10px] text-slate-400">{row.transaction_id ?? row.id.slice(0, 8)}</p>
-            <h2 className="mt-1 truncate font-black text-slate-950">{row.customer_name}</h2>
-            <p className="text-xs text-slate-500">{row.customer_phone.replace("@lid", "")}</p>
+            <h2 className="mt-0.5 truncate font-black text-slate-950 text-sm sm:text-base">{row.customer_name}</h2>
+            <p className="text-[11px] sm:text-xs text-slate-500 truncate">{row.customer_phone.replace("@lid", "")}</p>
           </div>
           <div className="flex flex-col items-end gap-1 shrink-0">
             <Status value={row.status} />
-            <span className="flex items-center gap-1 text-[10px] text-slate-400"><Calendar className="h-2.5 w-2.5" />{date}</span>
-            <span className="flex items-center gap-1 text-[10px] text-slate-400"><Clock3 className="h-2.5 w-2.5" />{time}</span>
+            <span className="flex items-center gap-1 text-[9px] sm:text-[10px] text-slate-400"><Calendar className="h-2.5 w-2.5" />{date}</span>
+            <span className="flex items-center gap-1 text-[9px] sm:text-[10px] text-slate-400"><Clock3 className="h-2.5 w-2.5" />{time}</span>
           </div>
         </div>
-        <div className="my-4 rounded-xl bg-slate-50 p-3">
-          <p className="font-bold text-slate-900">{row.product_name}</p>
-          <p className="text-xs text-slate-500">{row.category} • {row.duration}</p>
+        <div className="my-3 rounded-xl bg-slate-50 p-2.5 sm:p-3">
+          <p className="font-bold text-slate-900 text-xs sm:text-sm break-words">{row.product_name}</p>
+          <p className="text-[11px] sm:text-xs text-slate-500 truncate">{row.category} • {row.duration}</p>
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <div><p className="text-[10px] font-semibold text-slate-400">TOTAL</p><p className="font-black text-slate-950">{formatIDR(row.price)}</p></div>
-          <div><p className="text-[10px] font-semibold text-slate-400">PROFIT</p><p className="font-black text-emerald-600">{formatIDR(row.profit_amount)}</p></div>
+          <div className="min-w-0"><p className="text-[10px] font-semibold text-slate-400">TOTAL</p><p className="font-black text-slate-950 truncate text-xs sm:text-sm">{formatIDR(row.price)}</p></div>
+          <div className="min-w-0"><p className="text-[10px] font-semibold text-slate-400">PROFIT</p><p className="font-black text-emerald-600 truncate text-xs sm:text-sm">{formatIDR(row.profit_amount)}</p></div>
         </div>
         <SyncNote row={row} />
-        {canEdit && <div className="mt-4 grid grid-cols-[1fr_44px] gap-2"><Button variant="outline" onClick={() => openStatus(row)} className="h-11"><RefreshCw className="mr-2 h-4 w-4" />Ubah status</Button><Button variant="outline" onClick={() => setDeleting(row)} className="h-11 border-rose-200 text-rose-600"><Trash2 className="h-4 w-4" /></Button></div>}
+        {canEdit && <div className="mt-3.5 grid grid-cols-[1fr_44px] gap-2"><Button variant="outline" onClick={() => openStatus(row)} className="h-10 sm:h-11 text-xs sm:text-sm font-semibold"><RefreshCw className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />Ubah status</Button><Button variant="outline" onClick={() => setDeleting(row)} className="h-10 sm:h-11 border-rose-200 text-rose-600"><Trash2 className="h-4 w-4" /></Button></div>}
       </article>;
     })}</div>
 

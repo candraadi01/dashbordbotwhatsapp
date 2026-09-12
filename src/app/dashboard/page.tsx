@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { dashboardService, PeriodFilter, ReportingData } from "@/services/dashboardService";
 import { transactionRealtimeService } from "@/services/transactionRealtimeService";
-import { formatIDR } from "@/lib/utils";
+import { formatIDR, cn } from "@/lib/utils";
 import { useSettings } from "@/hooks/useSettings";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { OverviewControls } from "@/components/dashboard/overview-controls";
@@ -142,40 +142,40 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="mx-auto max-w-[1500px] space-y-5 pb-8">
+    <div className="mx-auto max-w-[1500px] space-y-4 sm:space-y-5 pb-8">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <div className="mb-2 flex items-center gap-2 text-sm font-bold text-indigo-600">
-            <span className="grid h-8 w-8 place-items-center rounded-xl bg-indigo-50"><LayoutDashboard className="h-4 w-4" /></span>
+          <div className="mb-1.5 flex items-center gap-2 text-xs sm:text-sm font-bold text-indigo-600">
+            <span className="grid h-7 w-7 sm:h-8 sm:w-8 place-items-center rounded-xl bg-indigo-50"><LayoutDashboard className="h-4 w-4" /></span>
             Ringkasan bisnis
           </div>
-          <h1 className="text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">Overview Penjualan</h1>
-          <p className="mt-1 text-sm text-slate-500">Pantau transaksi, omzet, dan keuntungan dari bot WhatsApp.</p>
+          <h1 className="text-xl sm:text-3xl font-black tracking-tight text-slate-950">Overview Penjualan</h1>
+          <p className="mt-0.5 sm:mt-1 text-xs sm:text-sm text-slate-500">Pantau transaksi, omzet, dan keuntungan dari bot WhatsApp.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           {/* Realtime aktif */}
-          <div className="flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">
-            <span className="relative flex h-2.5 w-2.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-50" /><span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" /></span>
-            Realtime aktif{liveTransactions > 0 ? ` • ${liveTransactions} transaksi baru` : ""}
+          <div className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 sm:px-3 sm:py-2 text-[11px] sm:text-xs font-bold text-emerald-700 shadow-2xs">
+            <span className="relative flex h-2 w-2 sm:h-2.5 sm:w-2.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-50" /><span className="relative inline-flex h-2 w-2 sm:h-2.5 sm:w-2.5 rounded-full bg-emerald-500" /></span>
+            <span>Realtime{liveTransactions > 0 ? ` • ${liveTransactions} baru` : " aktif"}</span>
           </div>
           {/* Bot Status */}
           {(() => {
             const online = isAlive(bot, botNow);
             return (
-              <div className={`flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-bold ${
+              <div className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 sm:px-3 sm:py-2 text-[11px] sm:text-xs font-bold shadow-2xs ${
                 bot === null
                   ? "border-slate-200 bg-slate-50 text-slate-400"
                   : online
                     ? "border-emerald-200 bg-emerald-50 text-emerald-700"
                     : "border-rose-200 bg-rose-50 text-rose-600"
               }`}>
-                <span className="relative flex h-2.5 w-2.5">
+                <span className="relative flex h-2 w-2 sm:h-2.5 sm:w-2.5">
                   {online && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-50" />}
-                  <span className={`relative inline-flex h-2.5 w-2.5 rounded-full ${
+                  <span className={`relative inline-flex h-2 w-2 sm:h-2.5 sm:w-2.5 rounded-full ${
                     bot === null ? "bg-slate-300" : online ? "bg-emerald-500" : "bg-rose-500"
                   }`} />
                 </span>
-                WA Bot {bot === null ? "—" : online ? "Online" : "Offline"}
+                <span>WA Bot {bot === null ? "—" : online ? "Online" : "Offline"}</span>
               </div>
             );
           })()}
@@ -194,28 +194,42 @@ export default function DashboardPage() {
       />
 
       {loadError && (
-        <div className="flex items-center justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-          <span className="flex items-center gap-2"><AlertCircle className="h-5 w-5" />{loadError}</span>
-          <button type="button" onClick={() => void loadData()} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white"><RefreshCw className="h-4 w-4" /></button>
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-3 sm:p-4 text-xs sm:text-sm text-rose-700">
+          <span className="flex items-center gap-2"><AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />{loadError}</span>
+          <button type="button" onClick={() => void loadData()} className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white"><RefreshCw className="h-4 w-4" /></button>
         </div>
       )}
 
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
-        <StatCard title="Omzet" value={formatIDR(metrics.totalRevenue)} description="Dari transaksi berhasil" icon={DollarSign} iconColor="border-indigo-100 bg-indigo-50 text-indigo-600" />
+      <section className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
+        <StatCard title="Omzet" value={formatIDR(metrics.totalRevenue)} description="Transaksi berhasil" icon={DollarSign} iconColor="border-indigo-100 bg-indigo-50 text-indigo-600" />
         <StatCard title="Profit" value={formatIDR(metrics.totalProfit)} description={`Margin bersih ${metrics.averageProfitPercentage}%`} icon={TrendingUp} iconColor="border-emerald-100 bg-emerald-50 text-emerald-600" />
         <StatCard title="Transaksi" value={metrics.totalTransactions} description={`${successRate}% berhasil diproses`} icon={Receipt} iconColor="border-blue-100 bg-blue-50 text-blue-600" />
-        <StatCard title="Customer" value={metrics.totalCustomers} description="Customer pada periode" icon={Users} iconColor="border-violet-100 bg-violet-50 text-violet-600" />
+        <StatCard title="Customer" value={metrics.totalCustomers} description="Total pelanggan aktif" icon={Users} iconColor="border-violet-100 bg-violet-50 text-violet-600" />
       </section>
 
       <Card className="overflow-hidden border-slate-200 bg-white shadow-sm">
         <CardContent className="p-0">
-          <div className="grid grid-cols-2 divide-x divide-y divide-slate-100 sm:grid-cols-4 sm:divide-y-0">
-            {statuses.map((item) => {
+          <div className="grid grid-cols-2 sm:grid-cols-4 divide-y divide-slate-100 sm:divide-y-0 sm:divide-x">
+            {statuses.map((item, idx) => {
               const Icon = item.icon;
               return (
-                <div key={item.label} className="flex items-center gap-3 p-4 sm:p-5">
-                  <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${item.style}`}><Icon className="h-4 w-4" /></span>
-                  <div><p className="text-xl font-black text-slate-950">{item.value}</p><p className="flex items-center gap-1.5 text-xs font-medium text-slate-500"><span className={`h-1.5 w-1.5 rounded-full ${item.dot}`} />{item.label}</p></div>
+                <div
+                  key={item.label}
+                  className={cn(
+                    "flex items-center gap-2.5 p-3 sm:gap-3.5 sm:p-5",
+                    idx % 2 === 1 && "border-l border-slate-100 sm:border-l-0"
+                  )}
+                >
+                  <span className={cn("grid h-8 w-8 sm:h-10 sm:w-10 shrink-0 place-items-center rounded-lg sm:rounded-xl", item.style)}>
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-base sm:text-xl font-black text-slate-950">{item.value}</p>
+                    <p className="flex items-center gap-1 truncate text-[11px] sm:text-xs font-medium text-slate-500">
+                      <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", item.dot)} />
+                      <span className="truncate">{item.label}</span>
+                    </p>
+                  </div>
                 </div>
               );
             })}
@@ -223,53 +237,53 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
 
-      <section className="grid gap-5 xl:grid-cols-[minmax(0,1.6fr)_minmax(340px,0.8fr)]">
-        <Card className="border-slate-200 bg-white shadow-sm">
-          <CardHeader className="flex flex-row items-start justify-between border-b border-slate-100 pb-4">
+      <section className="grid gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1.6fr)_minmax(340px,0.8fr)]">
+        <Card className="border-slate-200 bg-white shadow-sm overflow-hidden">
+          <CardHeader className="flex flex-row items-center justify-between border-b border-slate-100 p-4 sm:p-5 pb-3 sm:pb-4">
             <div>
-              <CardTitle className="flex items-center gap-2 text-base font-bold text-slate-950"><Activity className="h-5 w-5 text-indigo-600" />Tren Penjualan</CardTitle>
-              <CardDescription className="mt-1 text-xs">Perbandingan omzet dan profit sesuai periode</CardDescription>
+              <CardTitle className="flex items-center gap-2 text-sm sm:text-base font-bold text-slate-950"><Activity className="h-4 w-4 sm:h-5 sm:w-5 text-indigo-600" />Tren Penjualan</CardTitle>
+              <CardDescription className="mt-0.5 text-[11px] sm:text-xs">Perbandingan omzet dan profit</CardDescription>
             </div>
-            <div className="hidden items-center gap-3 text-xs sm:flex"><span className="flex items-center gap-1.5 text-slate-500"><span className="h-2 w-2 rounded-full bg-indigo-600" />Omzet</span><span className="flex items-center gap-1.5 text-slate-500"><span className="h-2 w-2 rounded-full bg-emerald-500" />Profit</span></div>
+            <div className="flex items-center gap-2 sm:gap-3 text-[10px] sm:text-xs"><span className="flex items-center gap-1.5 text-slate-500"><span className="h-2 w-2 rounded-full bg-indigo-600" />Omzet</span><span className="flex items-center gap-1.5 text-slate-500"><span className="h-2 w-2 rounded-full bg-emerald-500" />Profit</span></div>
           </CardHeader>
-          <CardContent className="px-2 pb-3 pt-4 sm:px-4"><SalesTrendChart data={data.dailyData} /></CardContent>
+          <CardContent className="px-1 sm:px-4 pb-3 pt-4"><SalesTrendChart data={data.dailyData} /></CardContent>
         </Card>
 
-        <Card className="border-slate-200 bg-white shadow-sm">
-          <CardHeader className="border-b border-slate-100 pb-4">
-            <CardTitle className="flex items-center justify-between text-base font-bold text-slate-950"><span className="flex items-center gap-2"><Receipt className="h-5 w-5 text-indigo-600" />Transaksi Terbaru</span><Badge variant="outline">{metrics.recentTransactions.length}</Badge></CardTitle>
-            <CardDescription className="mt-1 text-xs">Aktivitas terbaru pada periode terpilih</CardDescription>
+        <Card className="border-slate-200 bg-white shadow-sm overflow-hidden">
+          <CardHeader className="border-b border-slate-100 p-4 sm:p-5 pb-3 sm:pb-4">
+            <CardTitle className="flex items-center justify-between text-sm sm:text-base font-bold text-slate-950"><span className="flex items-center gap-2"><Receipt className="h-4 w-4 sm:h-5 sm:w-5 text-indigo-600" />Transaksi Terbaru</span><Badge variant="outline">{metrics.recentTransactions.length}</Badge></CardTitle>
+            <CardDescription className="mt-0.5 text-[11px] sm:text-xs">Aktivitas terbaru pada periode terpilih</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             {metrics.recentTransactions.length === 0 ? (
-              <div className="grid min-h-64 place-items-center p-6 text-center"><div><Receipt className="mx-auto h-8 w-8 text-slate-300" /><p className="mt-3 text-sm font-semibold text-slate-700">Belum ada transaksi</p><p className="mt-1 text-xs text-slate-400">Coba pilih periode yang lebih panjang.</p></div></div>
+              <div className="grid min-h-56 sm:min-h-64 place-items-center p-6 text-center"><div><Receipt className="mx-auto h-8 w-8 text-slate-300" /><p className="mt-3 text-sm font-semibold text-slate-700">Belum ada transaksi</p><p className="mt-1 text-xs text-slate-400">Coba pilih periode yang lebih panjang.</p></div></div>
             ) : (
               <div className="divide-y divide-slate-100">
                 {metrics.recentTransactions.map((transaction) => (
                   <Link
                     key={transaction.id}
                     href={`/dashboard/transactions?edit=${encodeURIComponent(transaction.transaction_id || transaction.id)}`}
-                    className="group flex items-center gap-3 p-4 transition-all hover:bg-indigo-50/60 active:scale-[0.99]"
+                    className="group flex items-center gap-2.5 sm:gap-3 p-3 sm:p-4 transition-all hover:bg-indigo-50/60 active:scale-[0.99]"
                     title="Klik untuk membuka dan mengubah status transaksi"
                   >
-                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-100 text-sm font-black text-slate-700 transition group-hover:bg-indigo-600 group-hover:text-white">
+                    <span className="grid h-9 w-9 sm:h-10 sm:w-10 shrink-0 place-items-center rounded-xl bg-slate-100 text-xs sm:text-sm font-black text-slate-700 transition group-hover:bg-indigo-600 group-hover:text-white">
                       {transaction.customer_name.slice(0, 1).toUpperCase()}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className="truncate text-sm font-bold text-slate-900 transition group-hover:text-indigo-600">
+                      <div className="flex items-center gap-1.5">
+                        <p className="truncate text-xs sm:text-sm font-bold text-slate-900 transition group-hover:text-indigo-600">
                           {transaction.customer_name}
                         </p>
-                        <span className="font-mono text-[10px] text-slate-400">
+                        <span className="font-mono text-[9px] sm:text-[10px] text-slate-400 shrink-0">
                           {transaction.transaction_id ?? transaction.id.slice(0, 8)}
                         </span>
                       </div>
-                      <p className="truncate text-xs text-slate-500">
+                      <p className="truncate text-[11px] sm:text-xs text-slate-500">
                         {transaction.product_name} • {transaction.duration}
                       </p>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="text-sm font-bold text-slate-900">{formatIDR(transaction.price)}</p>
+                      <p className="text-xs sm:text-sm font-bold text-slate-900">{formatIDR(transaction.price)}</p>
                       <StatusBadge value={transaction.status} />
                     </div>
                     <ChevronRight className="h-4 w-4 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-indigo-600 shrink-0" />
@@ -279,7 +293,7 @@ export default function DashboardPage() {
             )}
           </CardContent>
           {metrics.recentTransactions.length > 0 && (
-            <div className="border-t border-slate-100 bg-slate-50/80 p-3 text-center">
+            <div className="border-t border-slate-100 bg-slate-50/80 p-2.5 sm:p-3 text-center">
               <Link
                 href="/dashboard/transactions"
                 className="inline-flex items-center justify-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-700 hover:underline"

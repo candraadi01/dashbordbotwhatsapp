@@ -140,58 +140,58 @@ export default function FinanceDashboardPage() {
       </div>
 
       {/* 1. FINANCIAL SUMMARY CARD */}
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-slate-200 bg-white backdrop-blur-xl">
-          <CardContent className="p-6">
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-sm font-medium text-slate-400">Total Revenue</p>
-                <h3 className="text-2xl font-bold text-slate-950 mt-1">{formatIDR(metrics.totalRevenue)}</h3>
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-5 lg:grid-cols-4">
+        <Card className="border-slate-200 bg-white backdrop-blur-xl shadow-xs">
+          <CardContent className="p-3.5 sm:p-6">
+            <div className="flex justify-between items-start gap-1">
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] sm:text-sm font-medium text-slate-400 truncate">Total Revenue</p>
+                <h3 className="text-base min-[380px]:text-lg sm:text-2xl font-bold text-slate-950 mt-1 truncate" title={formatIDR(metrics.totalRevenue)}>{formatIDR(metrics.totalRevenue)}</h3>
               </div>
-              <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                <DollarSign className="h-5 w-5" />
+              <div className="p-1.5 sm:p-2 rounded-lg bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 shrink-0">
+                <DollarSign className="h-4 w-4 sm:h-5 sm:w-5" />
               </div>
             </div>
           </CardContent>
         </Card>
         
-        <Card className="border-slate-200 bg-white backdrop-blur-xl">
-          <CardContent className="p-6">
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-sm font-medium text-slate-400">Total Profit</p>
-                <h3 className="text-2xl font-bold text-indigo-400 mt-1">{formatIDR(metrics.totalProfit)}</h3>
+        <Card className="border-slate-200 bg-white backdrop-blur-xl shadow-xs">
+          <CardContent className="p-3.5 sm:p-6">
+            <div className="flex justify-between items-start gap-1">
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] sm:text-sm font-medium text-slate-400 truncate">Total Profit</p>
+                <h3 className="text-base min-[380px]:text-lg sm:text-2xl font-bold text-indigo-600 mt-1 truncate" title={formatIDR(metrics.totalProfit)}>{formatIDR(metrics.totalProfit)}</h3>
               </div>
-              <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                <TrendingUp className="h-5 w-5" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-slate-200 bg-white backdrop-blur-xl">
-          <CardContent className="p-6">
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-sm font-medium text-slate-400">Profit Margin</p>
-                <h3 className="text-2xl font-bold text-amber-400 mt-1">{metrics.profitMargin.toFixed(1)}%</h3>
-              </div>
-              <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                <Percent className="h-5 w-5" />
+              <div className="p-1.5 sm:p-2 rounded-lg bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 shrink-0">
+                <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-slate-200 bg-white backdrop-blur-xl">
-          <CardContent className="p-6">
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-sm font-medium text-slate-400">Total Transactions</p>
-                <h3 className="text-2xl font-bold text-slate-950 mt-1">{metrics.totalTransactions}</h3>
+        <Card className="border-slate-200 bg-white backdrop-blur-xl shadow-xs">
+          <CardContent className="p-3.5 sm:p-6">
+            <div className="flex justify-between items-start gap-1">
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] sm:text-sm font-medium text-slate-400 truncate">Profit Margin</p>
+                <h3 className="text-base min-[380px]:text-lg sm:text-2xl font-bold text-amber-600 mt-1 truncate">{metrics.profitMargin.toFixed(1)}%</h3>
               </div>
-              <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                <Receipt className="h-5 w-5" />
+              <div className="p-1.5 sm:p-2 rounded-lg bg-amber-500/10 text-amber-600 border border-amber-500/20 shrink-0">
+                <Percent className="h-4 w-4 sm:h-5 sm:w-5" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-slate-200 bg-white backdrop-blur-xl shadow-xs">
+          <CardContent className="p-3.5 sm:p-6">
+            <div className="flex justify-between items-start gap-1">
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] sm:text-sm font-medium text-slate-400 truncate">Total Transactions</p>
+                <h3 className="text-base min-[380px]:text-lg sm:text-2xl font-bold text-slate-950 mt-1 truncate">{metrics.totalTransactions}</h3>
+              </div>
+              <div className="p-1.5 sm:p-2 rounded-lg bg-blue-500/10 text-blue-600 border border-blue-500/20 shrink-0">
+                <Receipt className="h-4 w-4 sm:h-5 sm:w-5" />
               </div>
             </div>
           </CardContent>
@@ -199,10 +199,10 @@ export default function FinanceDashboardPage() {
       </div>
 
       {/* 6. FINANCIAL INSIGHT CARD */}
-      <div className="grid gap-5 sm:grid-cols-3">
-        <Card className="border-slate-200 bg-white backdrop-blur-xl">
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="h-12 w-12 rounded-full bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 shrink-0">
+      <div className="grid gap-3 sm:gap-5 sm:grid-cols-3">
+        <Card className="border-slate-200 bg-white backdrop-blur-xl shadow-xs">
+          <CardContent className="p-3.5 sm:p-5 flex items-center gap-3 sm:gap-4">
+            <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 shrink-0">
               <Calendar className="h-5 w-5 text-emerald-400" />
             </div>
             <div>

@@ -472,6 +472,18 @@ export function NotificationCenter() {
           tag: notifId,
           data: { transactionId: notif.transactionId },
         });
+
+        // Kirim Web Push ke perangkat HP di latar belakang (walau browser HP ditutup)
+        void fetch("/api/push/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: notif.title,
+            body: notif.message,
+            url: `/dashboard/transactions?edit=${encodeURIComponent(notif.transactionId || "")}`,
+            transactionId: notif.transactionId,
+          }),
+        }).catch(() => {});
       }
 
       if (settings.soundAlert && settings.notificationSound !== "silent") {

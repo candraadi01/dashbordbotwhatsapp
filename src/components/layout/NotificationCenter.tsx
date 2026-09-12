@@ -5,12 +5,15 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
   Bell,
+  BellOff,
   Check,
   CheckCircle2,
   Clock,
   Clock3,
   ExternalLink,
+  Loader2,
   ShoppingCart,
+  Smartphone,
   X,
   XCircle,
 } from "lucide-react";
@@ -228,13 +231,61 @@ function PanelHeader({
 
 /* ──────────────── mobile bottom sheet (portal) ───────────────── */
 
+function PushBanner({ push }: { push: ReturnType<typeof usePushNotification> }) {
+  if (!push.isSupported) return null;
+
+  if (push.status === "granted") {
+    return (
+      <div className="flex items-center justify-between gap-2 border-b border-emerald-100 bg-emerald-50 px-4 py-2.5">
+        <div className="flex items-center gap-2 min-w-0">
+          <Smartphone className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+          <p className="min-w-0 flex-1 text-[11px] font-semibold text-emerald-700">Notifikasi HP aktif ✓</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => void push.unsubscribe()}
+          className="text-[11px] font-semibold text-emerald-700 underline hover:text-emerald-900"
+        >
+          Matikan
+        </button>
+      </div>
+    );
+  }
+
+  if (push.status === "denied") {
+    return (
+      <div className="flex items-center gap-2 border-b border-amber-100 bg-amber-50 px-4 py-2.5">
+        <BellOff className="h-3.5 w-3.5 shrink-0 text-amber-600" />
+        <p className="text-[11px] font-medium text-amber-700">Notifikasi diblokir di pengaturan browser.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-2 border-b border-indigo-100 bg-indigo-50/80 px-4 py-2.5">
+      <div className="flex items-center gap-2 min-w-0">
+        <Smartphone className="h-3.5 w-3.5 shrink-0 text-indigo-600" />
+        <p className="text-[11px] text-slate-700 font-medium truncate">Terima notifikasi di layar HP?</p>
+      </div>
+      <button
+        type="button"
+        onClick={() => void push.subscribe()}
+        disabled={push.status === "loading"}
+        className="shrink-0 rounded-md bg-indigo-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-indigo-700 active:scale-95 disabled:opacity-50 flex items-center gap-1"
+      >
+        {push.status === "loading" && <Loader2 className="h-3 w-3 animate-spin" />}
+        {push.status === "loading" ? "..." : "Aktifkan"}
+      </button>
+    </div>
+  );
+}
+
 function MobileSheet({
   isOpen,
   notifications,
   unreadCount,
   now,
-  isGranted,
-  onEnablePush,
+  push,
   onClose,
   onDismiss,
   onMarkAll,
@@ -244,8 +295,7 @@ function MobileSheet({
   notifications: AppNotification[];
   unreadCount: number;
   now: number;
-  isGranted: boolean;
-  onEnablePush: () => void;
+  push: ReturnType<typeof usePushNotification>;
   onClose: () => void;
   onDismiss: (id: string) => void;
   onMarkAll: () => void;
@@ -329,25 +379,7 @@ function MobileSheet({
           showClose
         />
 
-        {!isGranted && (
-          <div className="flex items-center justify-between gap-3 border-b border-indigo-100 bg-indigo-50/80 px-4 py-2.5">
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="grid h-6 w-6 place-items-center rounded-md bg-indigo-600 text-white shrink-0">
-                <Bell className="h-3.5 w-3.5" />
-              </span>
-              <span className="text-xs font-bold text-indigo-950 truncate">
-                Izinkan notifikasi layar HP
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={onEnablePush}
-              className="shrink-0 rounded-lg bg-indigo-600 px-3 py-1 text-xs font-bold text-white shadow-xs transition hover:bg-indigo-700 active:scale-95"
-            >
-              Izinkan
-            </button>
-          </div>
-        )}
+        <PushBanner push={push} />
 
         <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
           {notifications.length === 0 ? (
@@ -380,17 +412,11 @@ export function NotificationCenter() {
   const [isOpen, setIsOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const { settings, updateSetting, isLoaded } = useSettings();
-  const { isGranted, sendNotification, subscribeToPush } = usePushNotification();
+  const push = usePushNotification();
+  const { isGranted, sendNotification } = push;
   const dropdownRef = useRef<HTMLDivElement>(null);
   const recentEventsRef = useRef<Map<string, number>>(new Map());
   const unreadCount = notifications.length;
-
-  const handleEnablePush = useCallback(async () => {
-    const ok = await subscribeToPush();
-    if (ok) {
-      updateSetting("pushNotificationEnabled", true);
-    }
-  }, [subscribeToPush, updateSetting]);
 
   // Detect mobile (< 640px)
   const [isMobile, setIsMobile] = useState(false);
@@ -658,8 +684,7 @@ export function NotificationCenter() {
           notifications={notifications}
           unreadCount={unreadCount}
           now={currentTime}
-          isGranted={isGranted}
-          onEnablePush={handleEnablePush}
+          push={push}
           onClose={() => setIsOpen(false)}
           onDismiss={handleDismissOne}
           onMarkAll={handleDismissAll}
@@ -674,25 +699,7 @@ export function NotificationCenter() {
             unreadCount={unreadCount}
             onMarkAll={handleDismissAll}
           />
-          {!isGranted && (
-            <div className="flex items-center justify-between gap-3 border-b border-indigo-100 bg-indigo-50/80 px-4 py-2.5">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="grid h-6 w-6 place-items-center rounded-md bg-indigo-600 text-white shrink-0">
-                  <Bell className="h-3.5 w-3.5" />
-                </span>
-                <span className="text-xs font-bold text-indigo-950 truncate">
-                  Izinkan notifikasi layar HP
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={handleEnablePush}
-                className="shrink-0 rounded-lg bg-indigo-600 px-3 py-1 text-xs font-bold text-white shadow-xs transition hover:bg-indigo-700 active:scale-95"
-              >
-                Izinkan
-              </button>
-            </div>
-          )}
+          <PushBanner push={push} />
           <div className="max-h-[min(65vh,420px)] overflow-y-auto overscroll-contain">
             {notifications.length === 0 ? (
               <EmptyState />

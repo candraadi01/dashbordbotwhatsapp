@@ -203,6 +203,79 @@ export function NotificationPreferences() {
         </div>
       </div>
 
+      {/* Toggle Native OS Push Notification */}
+      {isSupported && (
+        <div className="border-b border-slate-100 bg-slate-50/50 px-4 py-4 sm:px-5">
+          <div className="flex items-center justify-between gap-4 rounded-xl border border-indigo-100 bg-white p-4 shadow-sm">
+            <div className="flex items-start gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-indigo-50 text-indigo-600">
+                <BellRing className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="text-sm font-bold text-slate-900">Notifikasi OS / HP (Latar Belakang)</p>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  Terima notifikasi native di layar HP meski browser/dashboard sedang ditutup.
+                </p>
+                {isDenied && (
+                  <p className="mt-1 text-[11px] font-semibold text-rose-600">
+                    Izin diblokir. Mohon izinkan notifikasi dari pengaturan browser Anda.
+                  </p>
+                )}
+              </div>
+            </div>
+            <Toggle
+              checked={isGranted}
+              onChange={async (checked) => {
+                if (checked) {
+                  const ok = await subscribeToPush();
+                  if (ok) {
+                    updateSetting("pushNotificationEnabled", true);
+                    setMessage({ type: "success", text: "Notifikasi OS / HP berhasil diaktifkan!" });
+                  } else {
+                    setMessage({ type: "error", text: "Gagal mengaktifkan notifikasi. Periksa izin browser Anda." });
+                  }
+                } else {
+                  await unsubscribeFromPush();
+                  updateSetting("pushNotificationEnabled", false);
+                  setMessage({ type: "success", text: "Notifikasi OS / HP dinonaktifkan." });
+                }
+              }}
+              label="Aktifkan Notifikasi OS"
+            />
+          </div>
+          {isGranted && (
+            <div className="mt-3 flex items-center justify-between gap-3 pt-2.5 border-t border-slate-100">
+              <p className="text-[11px] text-slate-500">Uji coba apakah notifikasi sampai ke layar HP Anda</p>
+              <button
+                type="button"
+                disabled={testingPush}
+                onClick={async () => {
+                  setTestingPush(true);
+                  setMessage(null);
+                  const res = await sendTestNotification();
+                  setTestingPush(false);
+                  if (res.success) {
+                    setMessage({
+                      type: "success",
+                      text: `Tes notifikasi berhasil dikirim! ${res.message || "Cek layar HP Anda sekarang."}`,
+                    });
+                  } else {
+                    setMessage({
+                      type: "error",
+                      text: res.message || "Gagal mengirim notifikasi tes.",
+                    });
+                  }
+                }}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100 active:scale-95 disabled:opacity-50"
+              >
+                <BellRing className="h-3.5 w-3.5" />
+                {testingPush ? "Mengirim ke HP..." : "Kirim Tes ke HP"}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className={cn("space-y-6 p-4 transition-opacity sm:p-5", !settings.notificationEnabled && "opacity-55")}>
         <fieldset disabled={!settings.notificationEnabled} className="space-y-3">
           <div>

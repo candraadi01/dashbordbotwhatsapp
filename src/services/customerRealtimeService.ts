@@ -1,5 +1,5 @@
 import { RealtimeChannel, RealtimePostgresChangesPayload } from "@supabase/supabase-js";
-import { supabaseAnon as supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase";
 import { Database } from "@/types/database.types";
 
 type CustomerRow = Database["public"]["Tables"]["customers"]["Row"];

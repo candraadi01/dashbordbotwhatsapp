@@ -1,4 +1,4 @@
-import { supabaseAnon as supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase";
 import { TransactionRow, DashboardMetrics as BaseDashboardMetrics } from "@/types";
 
 export type PeriodFilter =

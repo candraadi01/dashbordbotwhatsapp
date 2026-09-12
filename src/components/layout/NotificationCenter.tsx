@@ -1,17 +1,20 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import {
   Bell,
   Check,
   CheckCircle2,
   Clock,
   Clock3,
+  ExternalLink,
   ShoppingCart,
   X,
   XCircle,
 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 import { transactionRealtimeService } from "@/services/transactionRealtimeService";
 import { useSettings } from "@/hooks/useSettings";
 import { playNotificationSound } from "@/lib/notificationSound";
@@ -20,12 +23,39 @@ import { cn } from "@/lib/utils";
 
 export interface AppNotification {
   id: string;
+  transactionId?: string;
   type: "INSERT" | "UPDATE";
   status?: TransactionRow["status"];
   title: string;
   message: string;
   time: Date;
   read: boolean;
+}
+
+const DISMISSED_STORAGE_KEY = "candra_dismissed_notifications";
+
+function getDismissedSet(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = localStorage.getItem(DISMISSED_STORAGE_KEY);
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw);
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveDismissedIds(ids: string[]) {
+  if (typeof window === "undefined") return;
+  try {
+    const set = getDismissedSet();
+    ids.forEach((id) => set.add(id));
+    const limited = Array.from(set).slice(-300);
+    localStorage.setItem(DISMISSED_STORAGE_KEY, JSON.stringify(limited));
+  } catch (e) {
+    console.warn("Could not save dismissed notifications:", e);
+  }
 }
 
 /* ─────────────────────────── helpers ─────────────────────────── */
@@ -51,41 +81,90 @@ function notificationIcon(notification: AppNotification) {
   return { icon: Clock3, style: "border-amber-200 bg-amber-50 text-amber-600" };
 }
 
+function transactionToNotification(row: TransactionRow, isInsert = false): AppNotification {
+  const transactionId = row.transaction_id || row.id;
+  const customer = row.customer_name || "Customer";
+  const product = row.product_name || "Produk";
+  const status = row.status;
+  const statusLabel =
+    status === "success" ? "Berhasil" : status === "cancelled" ? "Gagal" : "Pending";
+
+  return {
+    id: `tx:${row.id}:${row.status}:${row.updated_at || row.created_at}`,
+    transactionId: row.transaction_id || row.id,
+    type: isInsert ? "INSERT" : "UPDATE",
+    status,
+    title: isInsert ? "Transaksi baru masuk" : `Status ${statusLabel}`,
+    message: isInsert
+      ? `${customer} memesan ${product} (${row.duration || "-"}) · ${transactionId}`
+      : `Pesanan ${transactionId} (${product}) milik ${customer} berubah menjadi ${statusLabel}.`,
+    time: new Date(row.updated_at || row.created_at),
+    read: false,
+  };
+}
+
 /* ─────────────── notification item (shared) ─────────────────── */
 
 function NotifItem({
   notification,
   now,
-  onRead,
+  onDismiss,
+  onClick,
 }: {
   notification: AppNotification;
   now: number;
-  onRead: (id: string) => void;
+  onDismiss: (id: string) => void;
+  onClick?: (transactionId?: string) => void;
 }) {
   const { icon: Icon, style } = notificationIcon(notification);
   return (
-    <button
-      type="button"
-      onClick={() => onRead(notification.id)}
+    <div
+      onClick={() => onClick?.(notification.transactionId)}
       className={cn(
-        "flex w-full gap-3 px-4 py-3.5 text-left transition-colors active:bg-slate-100",
-        !notification.read ? "bg-indigo-50/40" : "hover:bg-slate-50"
+        "group relative flex flex-col gap-2.5 border-b border-slate-100 p-4 text-left transition-colors active:bg-slate-100 cursor-pointer",
+        !notification.read ? "bg-indigo-50/40 hover:bg-indigo-50/70" : "hover:bg-slate-50"
       )}
     >
-      <span className={cn("mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl border", style)}>
-        <Icon className="h-4 w-4" />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-2 text-sm font-bold text-slate-800">
-          {notification.title}
-          {!notification.read && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-500" />}
+      <div className="flex items-start gap-3">
+        <span className={cn("mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl border shadow-sm", style)}>
+          <Icon className="h-4 w-4" />
         </span>
-        <span className="mt-0.5 block text-xs leading-5 text-slate-500">{notification.message}</span>
-        <span className="mt-1 flex items-center gap-1 text-[10px] font-medium text-slate-400">
-          <Clock className="h-3 w-3" /> {getTimeAgo(notification.time, now)}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-2">
+            <span className="flex items-center gap-2 text-sm font-bold text-slate-900">
+              {notification.title}
+              {!notification.read && <span className="h-2 w-2 shrink-0 rounded-full bg-indigo-600 animate-pulse" />}
+            </span>
+            <span className="flex items-center gap-1 text-[10px] font-medium text-slate-400 shrink-0">
+              <Clock className="h-3 w-3" /> {getTimeAgo(notification.time, now)}
+            </span>
+          </div>
+          <p className="mt-1 text-xs leading-relaxed text-slate-600 font-medium">
+            {notification.message}
+          </p>
+        </div>
+      </div>
+
+      {/* Action footer: field kecil "Tandai telah dibaca" & link detail */}
+      <div className="flex items-center justify-between pl-12 pt-0.5">
+        <span className="text-[11px] font-bold text-indigo-600 group-hover:underline flex items-center gap-1">
+          <span>Ubah status</span>
+          <ExternalLink className="h-3 w-3" />
         </span>
-      </span>
-    </button>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDismiss(notification.id);
+          }}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-700 shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 active:scale-95"
+          title="Tandai telah dibaca dan hapus notifikasi ini"
+        >
+          <Check className="h-3.5 w-3.5 text-emerald-600" />
+          <span>Tandai telah dibaca</span>
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -93,12 +172,12 @@ function NotifItem({
 
 function EmptyState() {
   return (
-    <div className="px-5 py-10 text-center">
+    <div className="px-5 py-12 text-center">
       <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-slate-100 text-slate-400">
         <Bell className="h-5 w-5" />
       </span>
       <p className="mt-3 text-sm font-bold text-slate-700">Belum ada notifikasi baru</p>
-      <p className="mt-1 text-xs text-slate-500">Aktivitas yang dipilih akan muncul di sini.</p>
+      <p className="mt-1 text-xs text-slate-500">Aktivitas transaksi realtime akan otomatis muncul di sini.</p>
     </div>
   );
 }
@@ -119,17 +198,17 @@ function PanelHeader({
   return (
     <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-3">
       <div>
-        <h3 className="text-sm font-black text-slate-950">Notifikasi</h3>
-        <p className="text-[11px] font-medium text-slate-500">Aktivitas transaksi secara realtime</p>
+        <h3 className="text-sm font-black text-slate-950">Notifikasi Realtime</h3>
+        <p className="text-[11px] font-medium text-slate-500">Aktivitas pesanan bot WhatsApp</p>
       </div>
       <div className="flex items-center gap-1">
         {unreadCount > 0 && (
           <button
             type="button"
             onClick={onMarkAll}
-            className="flex min-h-10 items-center gap-1.5 rounded-lg px-2 text-xs font-bold text-indigo-600 transition hover:bg-indigo-50"
+            className="flex min-h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-bold text-indigo-600 transition hover:bg-indigo-50 active:scale-95"
           >
-            <Check className="h-3.5 w-3.5" /> Tandai dibaca
+            <Check className="h-3.5 w-3.5" /> Tandai semua dibaca
           </button>
         )}
         {showClose && onClose && (
@@ -154,16 +233,18 @@ function MobileSheet({
   unreadCount,
   now,
   onClose,
-  onRead,
+  onDismiss,
   onMarkAll,
+  onClickItem,
 }: {
   isOpen: boolean;
   notifications: AppNotification[];
   unreadCount: number;
   now: number;
   onClose: () => void;
-  onRead: (id: string) => void;
+  onDismiss: (id: string) => void;
   onMarkAll: () => void;
+  onClickItem: (transactionId?: string) => void;
 }) {
   const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(false);
@@ -172,7 +253,6 @@ function MobileSheet({
   useEffect(() => {
     if (isOpen) {
       setMounted(true);
-      // Small delay so CSS transition fires after mount
       requestAnimationFrame(() => requestAnimationFrame(() => setVisible(true)));
     } else {
       setVisible(false);
@@ -225,16 +305,15 @@ function MobileSheet({
           background: "#fff",
           borderTopLeftRadius: "1.5rem",
           borderTopRightRadius: "1.5rem",
-          maxHeight: "82dvh",
+          maxHeight: "85dvh",
           boxShadow: "0 -8px 40px rgba(0,0,0,0.18)",
           transition: "transform 350ms cubic-bezier(0.32, 0.72, 0, 1)",
           transform: visible ? "translateY(0)" : "translateY(100%)",
-          // iOS safe area
           paddingBottom: "env(safe-area-inset-bottom, 0px)",
         }}
       >
         {/* Drag handle */}
-        <div style={{ display: "flex", justifyContent: "center", paddingTop: "10px", paddingBottom: "2px" }}>
+        <div style={{ display: "flex", justifyContent: "center", paddingTop: "10px", paddingBottom: "4px" }}>
           <div style={{ width: "36px", height: "4px", borderRadius: "2px", background: "#cbd5e1" }} />
         </div>
 
@@ -251,7 +330,13 @@ function MobileSheet({
           ) : (
             <div>
               {notifications.map((n) => (
-                <NotifItem key={n.id} notification={n} now={now} onRead={onRead} />
+                <NotifItem
+                  key={n.id}
+                  notification={n}
+                  now={now}
+                  onDismiss={onDismiss}
+                  onClick={onClickItem}
+                />
               ))}
             </div>
           )}
@@ -265,15 +350,16 @@ function MobileSheet({
 /* ──────────────────── main component ────────────────────────── */
 
 export function NotificationCenter() {
+  const router = useRouter();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const { settings, isLoaded } = useSettings();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const recentEventsRef = useRef<Map<string, number>>(new Map());
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const unreadCount = notifications.length;
 
-  // Detect mobile (< 640px) — refreshed on open
+  // Detect mobile (< 640px)
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 640);
@@ -282,7 +368,7 @@ export function NotificationCenter() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  // Click-outside for desktop dropdown only
+  // Click-outside for desktop dropdown
   useEffect(() => {
     if (isMobile) return;
     function handler(e: MouseEvent) {
@@ -302,7 +388,43 @@ export function NotificationCenter() {
     return () => window.clearInterval(id);
   }, [isOpen]);
 
-  // Realtime subscription
+  // Initial load of recent transactions from database
+  useEffect(() => {
+    let active = true;
+    async function fetchInitial() {
+      try {
+        const { data, error } = await supabase
+          .from("transactions")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(20);
+
+        if (error || !data || !active) return;
+
+        const dismissed = getDismissedSet();
+        const initialList: AppNotification[] = [];
+
+        for (const row of data) {
+          const item = row as TransactionRow;
+          const notifId = `tx:${item.id}:${item.status}:${item.updated_at || item.created_at}`;
+          if (!dismissed.has(notifId) && !dismissed.has(item.id)) {
+            initialList.push(transactionToNotification(item, item.status === "pending"));
+          }
+        }
+
+        setNotifications(initialList);
+      } catch (err) {
+        console.warn("Failed to load initial notifications:", err);
+      }
+    }
+
+    void fetchInitial();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Realtime subscription via authenticated Supabase
   useEffect(() => {
     if (!isLoaded || !settings.notificationEnabled) return;
 
@@ -317,40 +439,28 @@ export function NotificationCenter() {
 
       if (isInsert && !settings.notificationNewTransaction) return;
       if (isUpdate) {
-        if (oldData.status === status) return;
+        if (oldData?.status === status) return;
         if (status === "success" && !settings.notificationStatusSuccess) return;
         if (status === "pending" && !settings.notificationStatusPending) return;
         if (status === "cancelled" && !settings.notificationStatusCancelled) return;
       }
 
-      const eventKey = `${payload.eventType}:${data.id}:${status}:${data.updated_at}`;
+      const notifId = `tx:${data.id}:${status}:${data.updated_at || data.created_at}`;
+      const dismissed = getDismissedSet();
+      if (dismissed.has(notifId) || dismissed.has(data.id)) return;
+
       const now = Date.now();
-      const lastSeen = recentEventsRef.current.get(eventKey);
+      const lastSeen = recentEventsRef.current.get(notifId);
       if (lastSeen && now - lastSeen < 10_000) return;
-      recentEventsRef.current.set(eventKey, now);
+      recentEventsRef.current.set(notifId, now);
+
       for (const [key, ts] of recentEventsRef.current) {
         if (now - ts > 60_000) recentEventsRef.current.delete(key);
       }
 
-      const transactionId = data.transaction_id || data.id.slice(0, 8).toUpperCase();
-      const customer = data.customer_name || "Customer";
-      const product = data.product_name || "Produk";
-      const statusLabel =
-        status === "success" ? "Berhasil" : status === "cancelled" ? "Gagal" : "Pending";
+      const notif = transactionToNotification(data, isInsert);
 
-      const next: AppNotification = {
-        id: eventKey,
-        type: isInsert ? "INSERT" : "UPDATE",
-        status: isUpdate ? status : undefined,
-        title: isInsert ? "Transaksi baru" : `Status ${statusLabel}`,
-        message: isInsert
-          ? `${customer} memesan ${product} · ${transactionId}`
-          : `Pesanan ${transactionId} milik ${customer} menjadi ${statusLabel}.`,
-        time: new Date(),
-        read: false,
-      };
-
-      setNotifications((prev) => [next, ...prev].slice(0, 30));
+      setNotifications((prev) => [notif, ...prev.filter((n) => n.id !== notifId)].slice(0, 30));
 
       if (settings.soundAlert && settings.notificationSound !== "silent") {
         void playNotificationSound(
@@ -375,13 +485,89 @@ export function NotificationCenter() {
     settings.customNotificationAudio,
   ]);
 
-  const markAllAsRead = () =>
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  // Polling fallback every 6 seconds to guarantee real-time delivery
+  useEffect(() => {
+    if (!isLoaded || !settings.notificationEnabled) return;
 
-  const markOneAsRead = (id: string) =>
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-    );
+    const interval = setInterval(async () => {
+      try {
+        const { data, error } = await supabase
+          .from("transactions")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(6);
+
+        if (error || !data) return;
+
+        const dismissed = getDismissedSet();
+        const now = Date.now();
+        const newItems: AppNotification[] = [];
+
+        for (const row of data) {
+          const item = row as TransactionRow;
+          const notifId = `tx:${item.id}:${item.status}:${item.updated_at || item.created_at}`;
+          if (dismissed.has(notifId) || dismissed.has(item.id)) continue;
+          if (recentEventsRef.current.has(notifId)) continue;
+
+          // If created in the last 4 minutes or pending
+          const ageMs = now - new Date(item.created_at).getTime();
+          if (ageMs < 4 * 60 * 1000) {
+            recentEventsRef.current.set(notifId, now);
+            newItems.push(transactionToNotification(item, item.status === "pending"));
+          }
+        }
+
+        if (newItems.length > 0) {
+          setNotifications((prev) => {
+            const existingIds = new Set(prev.map((n) => n.id));
+            const toAdd = newItems.filter((n) => !existingIds.has(n.id));
+            if (toAdd.length === 0) return prev;
+            return [...toAdd, ...prev].slice(0, 30);
+          });
+
+          if (settings.soundAlert && settings.notificationSound !== "silent") {
+            void playNotificationSound(
+              settings.notificationSound,
+              settings.notificationVolume,
+              settings.customNotificationAudio
+            ).catch(() => {});
+          }
+        }
+      } catch {
+        // Silently handle transient errors
+      }
+    }, 6000);
+
+    return () => clearInterval(interval);
+  }, [
+    isLoaded,
+    settings.notificationEnabled,
+    settings.soundAlert,
+    settings.notificationSound,
+    settings.notificationVolume,
+    settings.customNotificationAudio,
+  ]);
+
+  // Dismiss a single notification: saves to localStorage and immediately removes from state
+  const handleDismissOne = useCallback((id: string) => {
+    saveDismissedIds([id]);
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+  }, []);
+
+  // Dismiss all notifications: saves all to localStorage and clears state
+  const handleDismissAll = useCallback(() => {
+    const allIds = notifications.map((n) => n.id);
+    saveDismissedIds(allIds);
+    setNotifications([]);
+  }, [notifications]);
+
+  // Navigate to transaction page and open status edit modal
+  const handleItemClick = useCallback((transactionId?: string) => {
+    if (transactionId) {
+      router.push(`/dashboard/transactions?edit=${encodeURIComponent(transactionId)}`);
+      setIsOpen(false);
+    }
+  }, [router]);
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -390,7 +576,7 @@ export function NotificationCenter() {
         type="button"
         onClick={() => setIsOpen((v) => !v)}
         className="relative grid h-11 w-11 place-items-center rounded-xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-950 active:scale-95"
-        aria-label={`Notifikasi${unreadCount ? `, ${unreadCount} belum dibaca` : ""}`}
+        aria-label={`Notifikasi${unreadCount ? `, ${unreadCount} baru` : ""}`}
         aria-expanded={isOpen}
       >
         <Bell className="h-5 w-5" />
@@ -409,8 +595,9 @@ export function NotificationCenter() {
           unreadCount={unreadCount}
           now={currentTime}
           onClose={() => setIsOpen(false)}
-          onRead={markOneAsRead}
-          onMarkAll={markAllAsRead}
+          onDismiss={handleDismissOne}
+          onMarkAll={handleDismissAll}
+          onClickItem={handleItemClick}
         />
       )}
 
@@ -419,7 +606,7 @@ export function NotificationCenter() {
         <div className="absolute right-0 top-full z-[65] mt-2 w-96 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl animate-in fade-in slide-in-from-top-2">
           <PanelHeader
             unreadCount={unreadCount}
-            onMarkAll={markAllAsRead}
+            onMarkAll={handleDismissAll}
           />
           <div className="max-h-[min(65vh,420px)] overflow-y-auto overscroll-contain">
             {notifications.length === 0 ? (
@@ -427,7 +614,13 @@ export function NotificationCenter() {
             ) : (
               <div className="divide-y divide-slate-100">
                 {notifications.map((n) => (
-                  <NotifItem key={n.id} notification={n} now={currentTime} onRead={markOneAsRead} />
+                  <NotifItem
+                    key={n.id}
+                    notification={n}
+                    now={currentTime}
+                    onDismiss={handleDismissOne}
+                    onClick={handleItemClick}
+                  />
                 ))}
               </div>
             )}

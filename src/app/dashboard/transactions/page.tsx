@@ -2,7 +2,8 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { AlertCircle, Calendar, CheckCircle2, Clock3, Loader2, MessageCircle, Receipt, RefreshCw, Search, Trash2, X, XCircle } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { authService } from "@/services/authService";
 import { transactionRealtimeService } from "@/services/transactionRealtimeService";
 import { transactionService } from "@/services/transactionService";
@@ -24,7 +25,10 @@ function formatDateTime(isoString: string) {
   return { date, time };
 }
 
-export default function TransactionsPage() {
+function TransactionsContent() {
+  const searchParams = useSearchParams();
+  const editParam = searchParams.get("edit") || searchParams.get("id");
+  const handledEditRef = useRef<string | null>(null);
   const [rows, setRows] = useState<TransactionRow[]>([]);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
@@ -63,6 +67,21 @@ export default function TransactionsPage() {
     const channel = transactionRealtimeService.subscribeTransactions(() => window.setTimeout(() => void load(), 250));
     return () => transactionRealtimeService.unsubscribe(channel);
   }, [load]);
+
+  useEffect(() => {
+    if (!editParam || rows.length === 0 || handledEditRef.current === editParam) return;
+    const target = rows.find(
+      (r) =>
+        r.id === editParam ||
+        r.transaction_id === editParam ||
+        (r.transaction_id && r.transaction_id.toLowerCase() === editParam.toLowerCase())
+    );
+    if (target) {
+      handledEditRef.current = editParam;
+      setQuery(target.transaction_id ?? target.id.slice(0, 8));
+      openStatus(target);
+    }
+  }, [editParam, rows]);
 
   const shown = useMemo(() => rows.filter((row) =>
     (filter === "all" || row.status === filter) &&
@@ -165,7 +184,7 @@ export default function TransactionsPage() {
     {/* Desktop table */}
     <Card className="hidden overflow-hidden md:block"><CardContent className="overflow-x-auto p-0"><table className="w-full min-w-[960px] text-left text-sm"><thead className="bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500"><tr><th className="px-5 py-4">Transaksi</th><th className="px-5 py-4">Customer</th><th className="px-5 py-4">Produk</th><th className="px-5 py-4">Nilai</th><th className="px-5 py-4">Profit</th><th className="px-5 py-4">Status & Sinkron</th><th className="px-5 py-4">Waktu</th>{canEdit && <th className="px-5 py-4 text-right">Aksi</th>}</tr></thead><tbody className="divide-y divide-slate-100">{shown.map((row) => <tr key={row.id} className="hover:bg-slate-50"><td className="px-5 py-4 font-mono text-xs text-slate-500">{row.transaction_id ?? row.id.slice(0, 8)}</td><td className="px-5 py-4"><b className="block text-slate-900">{row.customer_name}</b><span className="text-xs text-slate-500">{row.customer_phone.replace("@lid", "")}</span></td><td className="px-5 py-4"><b className="block text-slate-800">{row.product_name}</b><span className="text-xs text-slate-500">{row.category} • {row.duration}</span></td><td className="px-5 py-4 font-semibold">{formatIDR(row.price)}</td><td className="px-5 py-4 font-semibold text-emerald-600">{formatIDR(row.profit_amount)}</td><td className="px-5 py-4"><Status value={row.status} /><SyncNote row={row} /></td><td className="px-5 py-4 text-xs text-slate-500">{new Date(row.created_at).toLocaleString("id-ID")}</td>{canEdit && <td className="px-5 py-4"><div className="flex justify-end gap-2"><Button size="sm" variant="outline" onClick={() => openStatus(row)}><RefreshCw className="mr-1.5 h-3.5 w-3.5" />Status</Button><Button size="icon" variant="ghost" className="text-rose-600" onClick={() => setDeleting(row)}><Trash2 className="h-4 w-4" /></Button></div></td>}</tr>)}</tbody></table>{shown.length === 0 && <p className="p-10 text-center text-sm text-slate-500">Tidak ada transaksi yang cocok.</p>}</CardContent></Card>
 
-    <AnimatePresence>{editing && <motion.div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/45 backdrop-blur-sm sm:items-center sm:p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><motion.div initial={{ y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 80, opacity: 0 }} className="max-h-[94dvh] w-full overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:max-w-lg sm:rounded-3xl"><div className="flex items-start justify-between"><div><p className="text-xs font-bold uppercase text-indigo-600">Proses transaksi</p><h2 className="mt-1 text-xl font-black text-slate-950">Pilih status</h2><p className="text-xs text-slate-500">{editing.transaction_id ?? editing.id}</p></div><button type="button" disabled={busy || Boolean(modalSuccess)} onClick={() => setEditing(null)} className="grid h-11 w-11 place-items-center rounded-xl hover:bg-slate-100 disabled:opacity-40"><X /></button></div><div className="mt-5 space-y-2">{choices.map((item) => { const Icon=item.icon; const isCurrent=item.value === editing.status; return <button key={item.value} disabled={busy || Boolean(modalSuccess)} type="button" onClick={() => { setNextStatus(item.value); setModalError(""); }} className={`flex min-h-16 w-full items-center gap-3 rounded-2xl border p-3 text-left transition active:scale-[.98] disabled:cursor-wait ${item.style} ${nextStatus === item.value ? "ring-2 ring-indigo-300" : "opacity-75"}`}><Icon className="h-5 w-5" /><span><span className="flex items-center gap-2 text-sm font-black">{item.label}{isCurrent && <span className="rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-bold">Saat ini</span>}</span><span className="block text-xs opacity-75">{item.help}</span></span>{nextStatus === item.value && <CheckCircle2 className="ml-auto h-5 w-5" />}</button> })}</div><p className="mt-4 flex items-start gap-2 rounded-xl bg-blue-50 p-3 text-xs text-blue-700"><MessageCircle className="mt-0.5 h-4 w-4 shrink-0" />Status disimpan langsung ke database. Bot akan menerima pembaruan secara real-time atau melalui pemeriksaan cadangan maksimal sekitar 8 detik.</p>{modalError && <motion.p initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} role="alert" className="mt-3 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-700"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{modalError}</motion.p>}{modalSuccess && <motion.p initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="mt-3 flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-semibold text-emerald-700"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />{modalSuccess}</motion.p>}<Button onClick={saveStatus} disabled={busy || Boolean(modalSuccess)} className="mt-4 h-12 w-full bg-indigo-600 text-white hover:bg-indigo-700 disabled:cursor-wait disabled:opacity-70">{busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}{busy ? "Menyimpan ke database..." : nextStatus === editing.status ? "Kirim ulang status ke WhatsApp" : "Simpan dan sinkronkan"}</Button></motion.div></motion.div>}</AnimatePresence>
+    <AnimatePresence>{editing && <motion.div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/45 backdrop-blur-sm sm:items-center sm:p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><motion.div initial={{ y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 80, opacity: 0 }} className="max-h-[94dvh] w-full overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:max-w-lg sm:rounded-3xl"><div className="flex items-start justify-between"><div><p className="text-xs font-bold uppercase text-indigo-600">Proses transaksi</p><h2 className="mt-1 text-xl font-black text-slate-950">Pilih status</h2><p className="text-xs text-slate-500">{editing.transaction_id ?? editing.id}</p></div><button type="button" disabled={busy || Boolean(modalSuccess)} onClick={() => setEditing(null)} className="grid h-11 w-11 place-items-center rounded-xl hover:bg-slate-100 disabled:opacity-40"><X /></button></div><div className="mt-5 space-y-2">{choices.map((item) => { const Icon=item.icon; const isCurrent=item.value === editing.status; return <button key={item.value} disabled={busy || Boolean(modalSuccess)} type="button" onClick={() => { setNextStatus(item.value); setModalError(""); }} className={`flex min-h-16 w-full items-center gap-3 rounded-2xl border p-3 text-left transition active:scale-[.98] disabled:cursor-wait ${item.style} ${nextStatus === item.value ? "ring-2 ring-indigo-300" : "opacity-75"}`}><Icon className="h-5 w-5" /><span><span className="flex items-center gap-2 text-sm font-black">{item.label}{isCurrent && <span className="rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-bold">Saat ini</span>}</span><span className="block text-xs opacity-75">{item.help}</span></span>{nextStatus === item.value && <CheckCircle2 className="ml-auto h-5 w-5" />}</button> })}</div><p className="mt-4 flex items-start gap-2 rounded-xl bg-blue-50 p-3 text-xs text-blue-700"><MessageCircle className="mt-0.5 h-4 w-4 shrink-0" />Status disimpan langsung ke database. Bot akan mengirimkan pemberitahuan pembaruan ke nomor WhatsApp Owner.</p>{modalError && <motion.p initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} role="alert" className="mt-3 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-700"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{modalError}</motion.p>}{modalSuccess && <motion.p initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="mt-3 flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-semibold text-emerald-700"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />{modalSuccess}</motion.p>}<Button onClick={saveStatus} disabled={busy || Boolean(modalSuccess)} className="mt-4 h-12 w-full bg-indigo-600 text-white hover:bg-indigo-700 disabled:cursor-wait disabled:opacity-70">{busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}{busy ? "Menyimpan ke database..." : nextStatus === editing.status ? "Kirim ulang status ke WhatsApp" : "Simpan dan sinkronkan"}</Button></motion.div></motion.div>}</AnimatePresence>
 
     <AnimatePresence>{deleting && <motion.div className="fixed inset-0 z-[110] flex items-end justify-center bg-slate-950/45 backdrop-blur-sm sm:items-center sm:p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><motion.div initial={{ scale: .94, y: 50 }} animate={{ scale: 1, y: 0 }} exit={{ scale: .94, y: 50 }} className="w-full rounded-t-3xl bg-white p-5 text-center shadow-2xl sm:max-w-sm sm:rounded-3xl"><span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-rose-100 text-rose-600"><Trash2 /></span><h2 className="mt-4 text-lg font-black text-slate-950">Hapus transaksi?</h2><p className="mt-1 text-sm text-slate-500">{deleting.transaction_id ?? deleting.id}</p><div className="mt-5 grid grid-cols-2 gap-2"><Button variant="outline" onClick={() => setDeleting(null)} disabled={busy}>Batal</Button><Button variant="destructive" onClick={remove} disabled={busy}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Hapus"}</Button></div></motion.div></motion.div>}</AnimatePresence>
   </div>;
@@ -174,3 +193,11 @@ export default function TransactionsPage() {
 function Status({ value }: { value: TransactionStatus }) { const style=value === "success" ? "bg-emerald-50 text-emerald-700" : value === "pending" ? "bg-amber-50 text-amber-700" : "bg-rose-50 text-rose-700"; return <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${style}`}>{value === "success" ? "Berhasil" : value === "pending" ? "Pending" : "Gagal"}</span>; }
 function statusLabel(value: TransactionStatus) { return value === "success" ? "Berhasil" : value === "pending" ? "Pending" : "Gagal"; }
 function SyncNote({ row }: { row: TransactionRow }) { if (row.status_source !== "dashboard") return null; const pending=row.status_sync_state === "pending"; return <p className={`mt-1 flex items-center gap-1 text-[10px] font-semibold ${pending ? "text-amber-600" : "text-emerald-600"}`}>{pending ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}{pending ? "Menunggu bot WhatsApp" : "WhatsApp tersinkron"}</p>; }
+
+export default function TransactionsPage() {
+  return (
+    <Suspense fallback={<div className="flex h-64 items-center justify-center text-sm font-semibold text-slate-500">Memuat transaksi...</div>}>
+      <TransactionsContent />
+    </Suspense>
+  );
+}

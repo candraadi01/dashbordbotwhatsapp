@@ -1,4 +1,4 @@
-import { supabaseAnon as supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase";
 import { RealtimePostgresChangesPayload, RealtimeChannel } from "@supabase/supabase-js";
 import { TransactionRow } from "@/types";
 

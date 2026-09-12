@@ -17,6 +17,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import { transactionRealtimeService } from "@/services/transactionRealtimeService";
 import { useSettings } from "@/hooks/useSettings";
+import { usePushNotification } from "@/hooks/usePushNotification";
 import { playNotificationSound } from "@/lib/notificationSound";
 import { TransactionRow } from "@/types";
 import { cn } from "@/lib/utils";
@@ -355,6 +356,7 @@ export function NotificationCenter() {
   const [isOpen, setIsOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const { settings, isLoaded } = useSettings();
+  const { isGranted, sendNotification } = usePushNotification();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const recentEventsRef = useRef<Map<string, number>>(new Map());
   const unreadCount = notifications.length;
@@ -461,6 +463,16 @@ export function NotificationCenter() {
       const notif = transactionToNotification(data, isInsert);
 
       setNotifications((prev) => [notif, ...prev.filter((n) => n.id !== notifId)].slice(0, 30));
+
+      // Kirim notifikasi OS jika diaktifkan dan izin sudah diberikan
+      if (settings.pushNotificationEnabled && isGranted) {
+        sendNotification({
+          title: notif.title,
+          body: notif.message,
+          tag: notifId,
+          data: { transactionId: notif.transactionId },
+        });
+      }
 
       if (settings.soundAlert && settings.notificationSound !== "silent") {
         void playNotificationSound(

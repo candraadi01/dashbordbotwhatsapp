@@ -8,12 +8,14 @@ import {
   Music2,
   Play,
   ShoppingCart,
+  Smartphone,
   Trash2,
   Upload,
   Volume2,
   XCircle,
 } from "lucide-react";
 import { useSettings, SettingsState } from "@/hooks/useSettings";
+import { usePushNotification } from "@/hooks/usePushNotification";
 import {
   NOTIFICATION_SOUND_OPTIONS,
   NotificationSoundPreset,
@@ -91,9 +93,11 @@ const EVENT_OPTIONS: Array<{
 
 export function NotificationPreferences() {
   const { settings, updateSetting } = useSettings();
+  const { permissionState, isSupported, isGranted, isDenied, requestPermission } = usePushNotification();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [isTesting, setIsTesting] = useState(false);
+  const [requestingPush, setRequestingPush] = useState(false);
 
   const selectSound = (sound: NotificationSoundPreset) => {
     updateSetting("notificationSound", sound);
@@ -334,6 +338,87 @@ export function NotificationPreferences() {
             {message.text}
           </div>
         )}
+
+        {/* ── OS / Background Push Notification ── */}
+        <fieldset className="space-y-3 border-t border-slate-200 pt-5">
+          <div className="flex min-w-0 items-start gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-violet-100 text-violet-600">
+              <Smartphone className="h-[18px] w-[18px]" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <legend className="text-sm font-black text-slate-900">Notifikasi OS / Latar Belakang</legend>
+              <p className="mt-0.5 text-xs leading-5 text-slate-500">
+                Kirim notifikasi seperti WhatsApp — muncul di layar meski browser di background.
+                {!isSupported && " (Browser ini tidak mendukung Notification API.)"}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex min-h-12 items-center justify-between gap-4 rounded-xl border border-violet-100 bg-violet-50/60 px-4">
+            <div>
+              <p className="text-sm font-bold text-slate-900">Notifikasi latar belakang</p>
+              <p className={cn(
+                "text-xs font-semibold",
+                !isSupported ? "text-slate-400" :
+                settings.pushNotificationEnabled && isGranted ? "text-emerald-600" :
+                "text-slate-400"
+              )}>
+                {!isSupported ? "Tidak didukung" :
+                  isDenied ? "Ditolak browser — ubah di Setelan browser" :
+                  !isGranted ? "Izin belum diberikan" :
+                  settings.pushNotificationEnabled ? "Aktif" : "Nonaktif"}
+              </p>
+            </div>
+            <Toggle
+              checked={settings.pushNotificationEnabled && isGranted}
+              onChange={async (checked) => {
+                if (checked && !isGranted) {
+                  setRequestingPush(true);
+                  const result = await requestPermission();
+                  setRequestingPush(false);
+                  if (result === "granted") {
+                    updateSetting("pushNotificationEnabled", true);
+                    setMessage({ type: "success", text: "Notifikasi OS berhasil diaktifkan! Coba tutup tab ini ke background." });
+                  } else {
+                    setMessage({ type: "error", text: "Izin notifikasi ditolak. Ubah di pengaturan browser Anda." });
+                  }
+                } else {
+                  updateSetting("pushNotificationEnabled", checked);
+                }
+              }}
+              label="Aktifkan notifikasi OS"
+            />
+          </div>
+
+          {/* Status + tombol minta izin */}
+          {isSupported && !isGranted && !isDenied && (
+            <button
+              type="button"
+              disabled={requestingPush}
+              onClick={async () => {
+                setRequestingPush(true);
+                const result = await requestPermission();
+                setRequestingPush(false);
+                if (result === "granted") {
+                  updateSetting("pushNotificationEnabled", true);
+                  setMessage({ type: "success", text: "Izin diberikan! Notifikasi OS sekarang aktif." });
+                } else {
+                  setMessage({ type: "error", text: "Izin ditolak. Aktifkan dari setelan browser." });
+                }
+              }}
+              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 text-sm font-bold text-white transition hover:bg-violet-700 active:scale-[.98] disabled:cursor-wait disabled:opacity-70"
+            >
+              <Smartphone className="h-4 w-4" />
+              {requestingPush ? "Menunggu izin..." : "Izinkan notifikasi OS"}
+            </button>
+          )}
+
+          {isDenied && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-700">
+              Notifikasi diblokir browser. Buka Pengaturan browser → Privasi &amp; Keamanan → Notifikasi → izinkan situs ini.
+            </div>
+          )}
+        </fieldset>
       </div>
     </section>
   );

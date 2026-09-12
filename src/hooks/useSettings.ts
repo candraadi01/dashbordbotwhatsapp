@@ -18,6 +18,7 @@ export interface SettingsState {
   customNotificationAudioName: string;
   customerScoreEnabled: boolean;
   customerPointsEnabled: boolean;
+  pushNotificationEnabled: boolean;
 }
 
 const SETTINGS_KEY = "candra_admin_settings";
@@ -39,6 +40,7 @@ const defaultSettings: SettingsState = {
   customNotificationAudioName: "",
   customerScoreEnabled: true,
   customerPointsEnabled: true,
+  pushNotificationEnabled: false,
 };
 
 function normaliseSettings(value?: Partial<SettingsState> | null): SettingsState {

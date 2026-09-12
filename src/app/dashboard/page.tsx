@@ -12,6 +12,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
+import { supabase } from "@/lib/supabase";
+import { BotInstanceRow } from "@/types";
 import {
   Activity,
   AlertCircle,
@@ -36,6 +38,10 @@ function toDateInput(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
+function isAlive(bot: BotInstanceRow | null, now: number) {
+  return Boolean(bot && bot.status === "online" && now - new Date(bot.last_seen).getTime() < 90_000);
+}
+
 export default function DashboardPage() {
   const { settings, isLoaded } = useSettings();
   const [data, setData] = useState<ReportingData | null>(null);
@@ -49,6 +55,8 @@ export default function DashboardPage() {
     endDate: toDateInput(new Date()),
   }));
   const appliedSettings = useRef(false);
+  const [bot, setBot] = useState<BotInstanceRow | null>(null);
+  const [botNow, setBotNow] = useState(0);
 
   const loadData = useCallback(async () => {
     setIsRefreshing(true);
@@ -81,6 +89,33 @@ export default function DashboardPage() {
     });
     return () => transactionRealtimeService.unsubscribe(channel);
   }, [isLoaded, loadData, settings.realtimeOn]);
+
+  // Bot status realtime
+  useEffect(() => {
+    setBotNow(Date.now());
+    const timer = window.setInterval(() => setBotNow(Date.now()), 10_000);
+
+    void supabase
+      .from("bot_instances")
+      .select("*")
+      .order("last_seen", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data: b }) => { if (b) setBot(b as BotInstanceRow); });
+
+    const channel = supabase
+      .channel("overview-bot-status")
+      .on("postgres_changes", { event: "*", schema: "public", table: "bot_instances" }, (payload) => {
+        if (payload.eventType === "DELETE") setBot(null);
+        else setBot(payload.new as BotInstanceRow);
+      })
+      .subscribe();
+
+    return () => {
+      window.clearInterval(timer);
+      void supabase.removeChannel(channel);
+    };
+  }, []);
 
   if (isLoading || !data) {
     return (
@@ -117,9 +152,33 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">Overview Penjualan</h1>
           <p className="mt-1 text-sm text-slate-500">Pantau transaksi, omzet, dan keuntungan dari bot WhatsApp.</p>
         </div>
-        <div className="flex items-center gap-2 self-start rounded-full border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 sm:self-auto">
-          <span className="relative flex h-2.5 w-2.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-50" /><span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" /></span>
-          Realtime aktif{liveTransactions > 0 ? ` • ${liveTransactions} transaksi baru` : ""}
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          {/* Realtime aktif */}
+          <div className="flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">
+            <span className="relative flex h-2.5 w-2.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-50" /><span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" /></span>
+            Realtime aktif{liveTransactions > 0 ? ` • ${liveTransactions} transaksi baru` : ""}
+          </div>
+          {/* Bot Status */}
+          {(() => {
+            const online = isAlive(bot, botNow);
+            return (
+              <div className={`flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-bold ${
+                bot === null
+                  ? "border-slate-200 bg-slate-50 text-slate-400"
+                  : online
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                    : "border-rose-200 bg-rose-50 text-rose-600"
+              }`}>
+                <span className="relative flex h-2.5 w-2.5">
+                  {online && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-50" />}
+                  <span className={`relative inline-flex h-2.5 w-2.5 rounded-full ${
+                    bot === null ? "bg-slate-300" : online ? "bg-emerald-500" : "bg-rose-500"
+                  }`} />
+                </span>
+                WA Bot {bot === null ? "—" : online ? "Online" : "Offline"}
+              </div>
+            );
+          })()}
         </div>
       </header>
 

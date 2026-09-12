@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ArrowDown, ArrowUp, CheckCircle2, ChevronDown, ChevronRight, ImagePlus, Layers3, LayoutGrid, List, Package, Pencil, Percent, Plus, Save, Search, Settings2, Trash2, X } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, Camera, CheckCircle2, ChevronDown, ChevronRight, ImagePlus, Layers3, LayoutGrid, List, Package, Pencil, Percent, Plus, Save, Search, Settings2, Trash2, X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { productMasterService, ProductMasterRow } from "@/services/productMasterService";
 import { authService } from "@/services/authService";
@@ -82,6 +82,11 @@ export default function ProductsPage() {
   const [orderingBusy, setOrderingBusy] = useState(false);
   const [error, setError] = useState("");
   const [canEdit, setCanEdit] = useState(false);
+  const [photoTarget, setPhotoTarget] = useState<{ serviceName: string; imageUrl: string | null } | null>(null);
+  const [selectedPhotoFile, setSelectedPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoError, setPhotoError] = useState("");
 
   const load = useCallback(async () => setProducts(await productMasterService.getProducts()), []);
   useEffect(() => {
@@ -185,6 +190,71 @@ export default function ProductsPage() {
       setError(uploadError instanceof Error ? uploadError.message : "Upload gagal");
     } finally {
       setBusy(false);
+    }
+  }
+
+  function openPhotoModal(service: ServiceGroup) {
+    setPhotoTarget({ serviceName: service.name, imageUrl: service.imageUrl });
+    setPhotoPreview(service.imageUrl);
+    setSelectedPhotoFile(null);
+    setPhotoError("");
+  }
+
+  async function handleSavePhoto() {
+    if (!photoTarget) return;
+    if (!selectedPhotoFile) {
+      setPhotoError("Silakan pilih file gambar baru terlebih dahulu.");
+      return;
+    }
+    setPhotoBusy(true);
+    setPhotoError("");
+    try {
+      const { data } = await supabase.auth.getSession();
+      const body = new FormData();
+      body.set("file", selectedPhotoFile);
+      const response = await fetch("/api/uploads/product", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${data.session?.access_token ?? ""}` },
+        body,
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Upload gagal");
+
+      const { error: dbError } = await supabase
+        .from("products")
+        .update({ image_url: result.url, image_public_id: result.publicId })
+        .eq("name", photoTarget.serviceName);
+      if (dbError) throw new Error(dbError.message);
+
+      setPhotoTarget(null);
+      setSavedNotice(true);
+      await load();
+    } catch (err) {
+      setPhotoError(err instanceof Error ? err.message : "Gagal mengganti foto");
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
+
+  async function handleRemovePhoto() {
+    if (!photoTarget) return;
+    if (!confirm(`Hapus foto untuk layanan ${photoTarget.serviceName}?`)) return;
+    setPhotoBusy(true);
+    setPhotoError("");
+    try {
+      const { error: dbError } = await supabase
+        .from("products")
+        .update({ image_url: null, image_public_id: null })
+        .eq("name", photoTarget.serviceName);
+      if (dbError) throw new Error(dbError.message);
+
+      setPhotoTarget(null);
+      setSavedNotice(true);
+      await load();
+    } catch (err) {
+      setPhotoError(err instanceof Error ? err.message : "Gagal menghapus foto");
+    } finally {
+      setPhotoBusy(false);
     }
   }
 
@@ -420,9 +490,12 @@ export default function ProductsPage() {
                 <span className="mt-1 block text-xs text-slate-500">{service.categories.length} kategori · {service.variants.length} varian</span>
               </div>
             </button>
-            {canEdit && <div className="grid grid-cols-[1fr_44px] gap-2 px-3 pb-3">
-              <Button className="h-11 sm:h-8" variant="outline" size="sm" onClick={() => beginCreateCategory(service.name)}><Plus className="mr-1.5 h-4 w-4" />Kategori</Button>
-              <Button className="group h-11 w-11 overflow-hidden shadow-red-200 transition-all hover:-translate-y-0.5 hover:shadow-lg sm:h-9 sm:w-9" variant="destructive" size="icon" onClick={() => removeService(service.name)} aria-label="Hapus layanan"><Trash2 className="h-4 w-4 transition-transform duration-200 group-hover:scale-110 group-hover:-rotate-6" /></Button>
+            {canEdit && <div className="flex flex-col gap-2 px-3 pb-3">
+              <div className="grid grid-cols-[1fr_44px] gap-2">
+                <Button className="h-10 sm:h-8" variant="outline" size="sm" onClick={() => beginCreateCategory(service.name)}><Plus className="mr-1.5 h-4 w-4" />Kategori</Button>
+                <Button className="group h-10 w-11 overflow-hidden shadow-red-200 transition-all hover:-translate-y-0.5 hover:shadow-lg sm:h-8 sm:w-9" variant="destructive" size="icon" onClick={() => removeService(service.name)} aria-label="Hapus layanan"><Trash2 className="h-4 w-4 transition-transform duration-200 group-hover:scale-110 group-hover:-rotate-6" /></Button>
+              </div>
+              <Button className="h-9 sm:h-8 w-full font-medium text-indigo-700 bg-indigo-50/60 hover:bg-indigo-100/70 border-indigo-200/60" variant="outline" size="sm" onClick={() => openPhotoModal(service)}><Camera className="mr-1.5 h-3.5 w-3.5 text-indigo-600" />Ganti Foto</Button>
             </div>}
           </> : <>
             {/* ── List view / expanded card header ── */}
@@ -430,7 +503,8 @@ export default function ProductsPage() {
               {service.imageUrl ? <img src={service.imageUrl} alt="" className="h-14 w-14 rounded-2xl object-cover" /> : <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600"><Package className="h-6 w-6" /></span>}
               <span className="min-w-0"><span className="flex items-center gap-2 text-lg font-bold text-slate-950">{isExpanded ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}{service.name}</span><span className="mt-1 block text-sm text-slate-500">{service.categories.length} kategori · {service.variants.length} varian · menu nomor {service.position}</span></span>
             </button>
-            {canEdit && <div className="grid grid-cols-[1fr_44px] gap-2 sm:flex">
+            {canEdit && <div className="grid grid-cols-[1fr_44px] gap-2 sm:flex sm:items-center">
+              <Button className="h-11 sm:h-8 font-medium text-indigo-700 bg-indigo-50/60 hover:bg-indigo-100/70 border-indigo-200/60" variant="outline" size="sm" onClick={() => openPhotoModal(service)}><Camera className="mr-1.5 h-4 w-4 text-indigo-600" />Ganti Foto</Button>
               <Button className="h-11 sm:h-8" variant="outline" size="sm" onClick={() => beginCreateCategory(service.name)}><Plus className="mr-1.5 h-4 w-4" />Tambah kategori</Button>
               <Button className="group h-11 w-11 overflow-hidden shadow-red-200 transition-all hover:-translate-y-0.5 hover:shadow-lg sm:h-9 sm:w-9" variant="destructive" size="icon" onClick={() => removeService(service.name)} aria-label="Hapus layanan"><Trash2 className="h-4 w-4 transition-transform duration-200 group-hover:scale-110 group-hover:-rotate-6" /></Button>
             </div>}
@@ -504,6 +578,52 @@ export default function ProductsPage() {
       <h2 className="mt-5 text-center text-xl font-bold text-slate-950 sm:text-left">{deleteRequest.title}</h2>
       <p className="mt-2 text-center text-sm leading-6 text-slate-500 sm:text-left">{deleteRequest.description}</p>
       <div className="mt-6 grid grid-cols-2 gap-3"><Button className="h-12" variant="outline" disabled={deleteBusy} onClick={() => setDeleteRequest(null)}>Batalkan</Button><motion.button whileTap={{ scale: 0.96 }} type="button" disabled={deleteBusy} onClick={confirmDelete} className="flex h-12 items-center justify-center rounded-lg bg-gradient-to-r from-red-600 to-rose-600 px-4 text-sm font-semibold text-white shadow-lg shadow-red-200 transition-shadow hover:shadow-xl disabled:opacity-60"><Trash2 className="mr-2 h-4 w-4" />{deleteBusy ? "Menghapus..." : "Ya, hapus"}</motion.button></div>
+    </motion.div></motion.div>}</AnimatePresence>
+
+    <AnimatePresence>{photoTarget && <motion.div className="fixed inset-0 z-50 flex items-end bg-slate-950/40 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><motion.div initial={{ opacity: 0, y: 48, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 36, scale: 0.98 }} transition={{ type: "spring", damping: 28, stiffness: 320 }} className="w-full max-w-md overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl">
+      <div className="flex items-start justify-between border-b border-slate-100 p-5 sm:p-6">
+        <div>
+          <h2 className="text-xl font-bold text-slate-950">Ganti Foto Layanan</h2>
+          <p className="mt-1 text-sm text-slate-500">{photoTarget.serviceName}</p>
+        </div>
+        <button className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-600 transition-transform active:scale-90" onClick={() => setPhotoTarget(null)} aria-label="Tutup"><X className="h-5 w-5" /></button>
+      </div>
+      <div className="space-y-4 p-5 sm:p-6">
+        <div className="relative flex aspect-video w-full items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+          {photoPreview ? (
+            <img src={photoPreview} alt={photoTarget.serviceName} className="h-full w-full object-cover" />
+          ) : (
+            <div className="flex flex-col items-center justify-center text-slate-400">
+              <Package className="mb-2 h-12 w-12 stroke-1" />
+              <p className="text-xs">Belum ada foto</p>
+            </div>
+          )}
+          {selectedPhotoFile && <span className="absolute bottom-2 left-2 rounded-lg bg-indigo-600/90 px-2.5 py-1 text-[11px] font-semibold text-white shadow backdrop-blur-sm">Foto Baru Terpilih</span>}
+        </div>
+        <label className="flex h-12 cursor-pointer items-center justify-center rounded-xl border border-dashed border-indigo-300 bg-indigo-50/70 text-sm font-semibold text-indigo-700 transition-colors hover:bg-indigo-100/70 active:scale-[0.99]">
+          <ImagePlus className="mr-2 h-4 w-4" />
+          {selectedPhotoFile ? "Pilih foto lain" : "Pilih foto baru"}
+          <input hidden type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) {
+              setSelectedPhotoFile(file);
+              setPhotoPreview(URL.createObjectURL(file));
+              setPhotoError("");
+            }
+          }} />
+        </label>
+        {photoError && <p className="rounded-xl bg-red-50 p-3 text-xs font-medium text-red-700">{photoError}</p>}
+        <p className="text-xs leading-relaxed text-slate-400">Foto akan diterapkan ke semua kategori dan varian di dalam layanan <strong>{photoTarget.serviceName}</strong>.</p>
+      </div>
+      <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/50 p-4 sm:px-6">
+        {photoTarget.imageUrl ? (
+          <Button type="button" variant="ghost" size="sm" disabled={photoBusy} onClick={handleRemovePhoto} className="text-xs text-red-600 hover:bg-red-50 hover:text-red-700"><Trash2 className="mr-1 h-3.5 w-3.5" />Hapus Foto</Button>
+        ) : <div />}
+        <div className="flex gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={() => setPhotoTarget(null)} disabled={photoBusy}>Batal</Button>
+          <Button type="button" size="sm" disabled={photoBusy || !selectedPhotoFile} onClick={handleSavePhoto} className="bg-indigo-600 hover:bg-indigo-700"><Save className="mr-1.5 h-3.5 w-3.5" />{photoBusy ? "Menyimpan..." : "Simpan Foto"}</Button>
+        </div>
+      </div>
     </motion.div></motion.div>}</AnimatePresence>
 
     <AnimatePresence>{savedNotice && <motion.div initial={{ opacity: 0, y: 24, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 16, scale: 0.96 }} className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-4 right-4 z-[80] mx-auto flex max-w-sm items-center gap-3 rounded-2xl bg-slate-950 px-4 py-3 text-white shadow-2xl"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-500"><CheckCircle2 className="h-5 w-5" /></span><div><p className="text-sm font-bold">Data berhasil disimpan</p><p className="text-xs text-slate-300">Varian terbaru sudah ditampilkan.</p></div></motion.div>}</AnimatePresence>

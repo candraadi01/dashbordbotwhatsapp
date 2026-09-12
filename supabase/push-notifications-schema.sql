@@ -21,7 +21,7 @@ CREATE INDEX IF NOT EXISTS idx_push_subs_endpoint ON public.push_subscriptions(e
 -- Aktifkan RLS
 ALTER TABLE public.push_subscriptions ENABLE ROW LEVEL SECURITY;
 
--- Izinkan anon & authenticated untuk mendaftarkan dan menghapus subscription sendiri
+-- Izinkan anon & authenticated untuk mendaftarkan dan membaca subscription
 CREATE POLICY "Allow public insert and update push subscriptions"
 ON public.push_subscriptions
 FOR ALL
@@ -29,21 +29,30 @@ TO anon, authenticated
 USING (true)
 WITH CHECK (true);
 
+-- 2. Aktifkan REPLICA IDENTITY FULL pada tabel transactions
+-- (Sangat penting agar event UPDATE & DELETE mengirimkan data lengkap customer, produk, dan ID ke notifikasi HP)
+ALTER TABLE public.transactions REPLICA IDENTITY FULL;
+
 -- ==============================================================================
--- PANDUAN AKTIFKAN SUPABASE DATABASE WEBHOOK (Agar notifikasi masuk saat browser tutup)
+-- CARA AKTIFKAN NOTIFIKASI REAL-TIME KE HP (SUPABASE DATABASE WEBHOOK)
+-- Agar notifikasi HP berdering real-time saat HP mati / aplikasi ditutup:
 -- ==============================================================================
--- 1. Buka Supabase Dashboard -> Project Anda
--- 2. Masuk ke menu "Database" -> "Webhooks" -> klik "Create a new hook"
+-- 1. Buka Supabase Dashboard -> https://supabase.com/dashboard/project/_/database/hooks
+-- 2. Klik "Create a new hook" (atau "Enable Webhooks" jika belum aktif)
 -- 3. Isi form sebagai berikut:
---    - Name: "push_on_new_transaction"
---    - Table: "transactions"
---    - Events: Centang "Insert" (dan opsional "Update")
---    - Type of webhook: "HTTP Request"
---    - Method: "POST"
+--    - Name: push_realtime_transactions
+--    - Table: transactions
+--    - Events: Centang SEMUA -> [x] Insert, [x] Update, [x] Delete
+--    - Type of webhook: HTTP Request
+--    - Method: POST
 --    - URL: https://[DOMAIN-DASHBOARD-ANDA]/api/push/send
+--           (Contoh: https://dashbordbotwhatsapp-candra.vercel.app/api/push/send)
 --    - HTTP Headers:
---        Content-Type: application/json
+--        Key: Content-Type
+--        Value: application/json
 -- 4. Klik "Create Webhook".
--- Selesai! Setiap ada transaksi baru dari WhatsApp Bot, Supabase akan langsung
--- menembak endpoint /api/push/send, dan HP Anda akan langsung berdering / bergetar
--- menampilkan notifikasi transaksi baru meskipun browser sedang ditutup.
+--
+-- Hasil: Begitu transaksi MASUK, DIBATALKAN, atau DIHAPUS (baik via WhatsApp Bot
+-- maupun Dashboard), Supabase akan otomatis mengirim sinyal Web Push ke HP Anda
+-- secara seketika (realtime) walau HP mati atau aplikasi ditutup!
+

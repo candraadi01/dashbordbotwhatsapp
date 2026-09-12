@@ -140,7 +140,38 @@ async function updateStatus(id, status, queueOnFailure = true) {
       conflict.noQueue = true;
       throw conflict;
     }
-    updateCache(toLegacy(data)); return data;
+    updateCache(toLegacy(data));
+    try {
+      const dashboardUrl = process.env.DASHBOARD_URL || 'http://localhost:3000';
+      const cust = data.customer_name || 'Pelanggan';
+      const prod = data.product_name || 'Produk';
+      const txCode = data.transaction_id || data.id;
+      const targetStatus = normalizeStatus(status);
+      let pushTitle = `⏳ Status Transaksi Pending: ${cust}`;
+      let pushBody = `Pesanan ${txCode} (${prod}) menunggu konfirmasi.`;
+
+      if (targetStatus === 'cancelled') {
+        pushTitle = `❌ Transaksi Dibatalkan: ${cust}`;
+        pushBody = `Pesanan ${txCode} (${prod}) telah dibatalkan.`;
+      } else if (targetStatus === 'success') {
+        pushTitle = `✅ Pembayaran Berhasil: ${cust}`;
+        pushBody = `Pesanan ${txCode} (${prod}) telah dikonfirmasi berhasil.`;
+      }
+
+      if (typeof fetch === 'function') {
+        fetch(dashboardUrl + '/api/push/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: pushTitle,
+            body: pushBody,
+            url: '/dashboard/transactions?edit=' + encodeURIComponent(txCode),
+            transactionId: txCode,
+          }),
+        }).catch(() => {});
+      }
+    } catch (_) {}
+    return data;
   } catch (error) {
     if (queueOnFailure && !error.noQueue) { updateCachedStatus(id, status); enqueue('updateStatus', { id, status }, error); }
     throw error;
@@ -172,7 +203,23 @@ async function deleteTransaction(id, queueOnFailure = true) {
   try {
     if (!enabled) throw new Error('Supabase belum dikonfigurasi');
     const { error } = await supabase.from('transactions').delete().eq('transaction_id', id); if (error) throw error;
-    writeJsonAtomic(transactionsCache, readJson(transactionsCache, []).filter(row => row.id !== id)); return true;
+    writeJsonAtomic(transactionsCache, readJson(transactionsCache, []).filter(row => row.id !== id));
+    try {
+      const dashboardUrl = process.env.DASHBOARD_URL || 'http://localhost:3000';
+      if (typeof fetch === 'function') {
+        fetch(dashboardUrl + '/api/push/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: '🗑️ Transaksi Dihapus',
+            body: `Pesanan ${id} telah dihapus dari sistem.`,
+            url: '/dashboard/transactions',
+            transactionId: id,
+          }),
+        }).catch(() => {});
+      }
+    } catch (_) {}
+    return true;
   } catch (error) {
     if (queueOnFailure) {
       writeJsonAtomic(transactionsCache, readJson(transactionsCache, []).filter(row => row.id !== id));

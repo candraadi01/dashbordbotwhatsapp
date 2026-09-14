@@ -26,8 +26,8 @@ export const dashboardNavigation = [
   { name: "Customers CRM", href: "/dashboard/customers", icon: Users },
   { name: "Transactions", href: "/dashboard/transactions", icon: Receipt },
   { name: "Products", href: "/dashboard/products", icon: Package },
-  { name: "Reports", href: "/dashboard/reports", icon: PieChart },
   { name: "Pesan Bot & QRIS", href: "/dashboard/finance", icon: MessageSquareText },
+  { name: "Reports", href: "/dashboard/reports", icon: PieChart },
   { name: "Monitoring", href: "/dashboard/monitoring", icon: Activity },
   { name: "Settings", href: "/dashboard/settings", icon: Settings },
 ];

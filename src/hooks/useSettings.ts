@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { PeriodFilter } from "@/services/dashboardService";
-import { NotificationSoundPreset } from "@/lib/notificationSound";
+import { NotificationSoundPreset, clearAudioBufferCache } from "@/lib/notificationSound";
+import { getAudioFromStorage, saveAudioToStorage, removeAudioFromStorage } from "@/lib/audioStorage";
 
 export interface SettingsState {
   realtimeOn: boolean;
@@ -60,29 +61,67 @@ export function useSettings() {
     settingsRef.current = next;
     setSettings(next);
 
+    // 1. Simpan audio custom ke IndexedDB agar tidak memberatkan / melebihi kuota localStorage
+    if (next.customNotificationAudio) {
+      void saveAudioToStorage(next.customNotificationAudio);
+    } else if (next.notificationSound !== "custom") {
+      clearAudioBufferCache();
+    }
+
+    // 2. Simpan ke localStorage dengan proteksi kuota
     try {
       localStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
-      if (broadcast) {
-        window.dispatchEvent(new CustomEvent<SettingsState>(SETTINGS_EVENT, { detail: next }));
+    } catch {
+      // Jika base64 audio terlalu besar untuk localStorage, simpan tanpa string audio utuh
+      // (karena audio sudah aman tersimpan di IndexedDB)
+      try {
+        const lean = { ...next, customNotificationAudio: null };
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(lean));
+      } catch (err) {
+        console.warn("[useSettings] Gagal menyimpan settings ke localStorage:", err);
       }
-    } catch (error) {
-      console.warn("Failed to save settings to localStorage:", error);
+    }
+
+    // 3. Broadcast perubahan ke semua tab/komponen
+    if (broadcast) {
+      window.dispatchEvent(new CustomEvent<SettingsState>(SETTINGS_EVENT, { detail: next }));
     }
   }, []);
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(SETTINGS_KEY);
-      const next = normaliseSettings(stored ? JSON.parse(stored) : null);
-      settingsRef.current = next;
-      setSettings(next);
-    } catch (error) {
-      console.warn("Failed to load settings from localStorage:", error);
-      settingsRef.current = defaultSettings;
-      setSettings(defaultSettings);
-    } finally {
-      setIsLoaded(true);
+    let active = true;
+
+    async function initSettings() {
+      try {
+        const stored = localStorage.getItem(SETTINGS_KEY);
+        const next = normaliseSettings(stored ? JSON.parse(stored) : null);
+
+        // Jika ada custom audio di IndexedDB tapi belum ada di state (misal karena disimpan lean di localStorage)
+        if (!next.customNotificationAudio && (next.notificationSound === "custom" || next.customNotificationAudioName)) {
+          const storedAudio = await getAudioFromStorage();
+          if (storedAudio && active) {
+            next.customNotificationAudio = storedAudio;
+          }
+        }
+
+        if (active) {
+          settingsRef.current = next;
+          setSettings(next);
+        }
+      } catch (error) {
+        console.warn("Failed to load settings:", error);
+        if (active) {
+          settingsRef.current = defaultSettings;
+          setSettings(defaultSettings);
+        }
+      } finally {
+        if (active) {
+          setIsLoaded(true);
+        }
+      }
     }
+
+    void initSettings();
 
     const handleSettingsChange = (event: Event) => {
       const detail = (event as CustomEvent<SettingsState>).detail;
@@ -92,10 +131,14 @@ export function useSettings() {
       setSettings(next);
     };
 
-    const handleStorage = (event: StorageEvent) => {
+    const handleStorage = async (event: StorageEvent) => {
       if (event.key !== SETTINGS_KEY || !event.newValue) return;
       try {
         const next = normaliseSettings(JSON.parse(event.newValue));
+        if (!next.customNotificationAudio && next.notificationSound === "custom") {
+          const storedAudio = await getAudioFromStorage();
+          if (storedAudio) next.customNotificationAudio = storedAudio;
+        }
         settingsRef.current = next;
         setSettings(next);
       } catch (error) {
@@ -105,7 +148,9 @@ export function useSettings() {
 
     window.addEventListener(SETTINGS_EVENT, handleSettingsChange);
     window.addEventListener("storage", handleStorage);
+
     return () => {
+      active = false;
       window.removeEventListener(SETTINGS_EVENT, handleSettingsChange);
       window.removeEventListener("storage", handleStorage);
     };

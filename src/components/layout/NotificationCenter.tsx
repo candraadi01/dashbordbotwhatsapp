@@ -21,7 +21,7 @@ import { supabase } from "@/lib/supabase";
 import { transactionRealtimeService } from "@/services/transactionRealtimeService";
 import { useSettings } from "@/hooks/useSettings";
 import { usePushNotification } from "@/hooks/usePushNotification";
-import { playNotificationSound } from "@/lib/notificationSound";
+import { playNotificationSound, unlockAudio } from "@/lib/notificationSound";
 import { TransactionRow } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -425,6 +425,27 @@ export function NotificationCenter() {
     check();
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
+  }, []);
+
+  // Unlock browser audio autoplay policy on first user interaction
+  useEffect(() => {
+    const handleInteraction = () => {
+      unlockAudio();
+      window.removeEventListener("pointerdown", handleInteraction);
+      window.removeEventListener("touchstart", handleInteraction);
+      window.removeEventListener("keydown", handleInteraction);
+      window.removeEventListener("click", handleInteraction);
+    };
+    window.addEventListener("pointerdown", handleInteraction);
+    window.addEventListener("touchstart", handleInteraction);
+    window.addEventListener("keydown", handleInteraction);
+    window.addEventListener("click", handleInteraction);
+    return () => {
+      window.removeEventListener("pointerdown", handleInteraction);
+      window.removeEventListener("touchstart", handleInteraction);
+      window.removeEventListener("keydown", handleInteraction);
+      window.removeEventListener("click", handleInteraction);
+    };
   }, []);
 
   // Click-outside for desktop dropdown

@@ -10,6 +10,7 @@ interface StatCardProps {
   icon: LucideIcon;
   iconColor?: string;
   trend?: string;
+  isMasked?: boolean;
 }
 
 export function StatCard({
@@ -18,6 +19,7 @@ export function StatCard({
   description,
   icon: Icon,
   iconColor = "text-indigo-400 bg-indigo-500/10 border-indigo-500/20",
+  isMasked = false,
 }: StatCardProps) {
   return (
     <Card className="group overflow-hidden border-slate-200 bg-white transition hover:-translate-y-0.5 hover:shadow-lg">
@@ -37,13 +39,16 @@ export function StatCard({
         </div>
         <div className="mt-2 sm:mt-3">
           <h3
-            className="truncate text-base min-[380px]:text-lg sm:text-2xl font-black tracking-tight text-slate-950"
-            title={String(value)}
+            className={cn(
+              "truncate text-base min-[380px]:text-lg sm:text-2xl font-black tracking-tight text-slate-950 transition-all duration-200",
+              isMasked && "tracking-widest select-none text-slate-700"
+            )}
+            title={isMasked ? "Nilai disembunyikan" : String(value)}
           >
             {value}
           </h3>
           {description && (
-            <p className="mt-0.5 sm:mt-1 truncate text-[10px] sm:text-xs text-slate-500 leading-normal" title={description}>
+            <p className="mt-0.5 sm:mt-1 truncate text-[10px] sm:text-xs text-slate-500 leading-normal" title={isMasked ? "" : description}>
               {description}
             </p>
           )}

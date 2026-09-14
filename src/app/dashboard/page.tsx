@@ -22,6 +22,8 @@ import {
   ChevronRight,
   Clock3,
   DollarSign,
+  Eye,
+  EyeOff,
   LayoutDashboard,
   Receipt,
   RefreshCw,
@@ -57,6 +59,20 @@ export default function DashboardPage() {
   const appliedSettings = useRef(false);
   const [bot, setBot] = useState<BotInstanceRow | null>(null);
   const [botNow, setBotNow] = useState(0);
+  // Default true: saat halaman dibuka pertama kali, angka otomatis tertutup (ala m-banking)
+  const [isMasked, setIsMasked] = useState(true);
+
+  useEffect(() => {
+    try {
+      localStorage.removeItem("candra_overview_masked_mode");
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const toggleMasked = () => {
+    setIsMasked((prev) => !prev);
+  };
 
   const loadData = useCallback(async () => {
     setIsRefreshing(true);
@@ -156,7 +172,7 @@ export default function DashboardPage() {
           {/* Realtime aktif */}
           <div className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 sm:px-3 sm:py-2 text-[11px] sm:text-xs font-bold text-emerald-700 shadow-2xs">
             <span className="relative flex h-2 w-2 sm:h-2.5 sm:w-2.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-50" /><span className="relative inline-flex h-2 w-2 sm:h-2.5 sm:w-2.5 rounded-full bg-emerald-500" /></span>
-            <span>Realtime{liveTransactions > 0 ? ` • ${liveTransactions} baru` : " aktif"}</span>
+            <span>Realtime{liveTransactions > 0 ? (isMasked ? " • •• baru" : ` • ${liveTransactions} baru`) : " aktif"}</span>
           </div>
           {/* Bot Status */}
           {(() => {
@@ -179,6 +195,31 @@ export default function DashboardPage() {
               </div>
             );
           })()}
+          {/* Tombol Fitur Mata (Sensor Angka ala M-Banking) */}
+          <button
+            type="button"
+            onClick={toggleMasked}
+            aria-label={isMasked ? "Tampilkan semua nominal angka" : "Sembunyikan nominal angka (mode privasi)"}
+            className={cn(
+              "group flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 sm:px-3 sm:py-2 text-[11px] sm:text-xs font-bold shadow-2xs transition-all duration-200 cursor-pointer active:scale-95",
+              isMasked
+                ? "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
+                : "border-slate-200 bg-white text-slate-700 hover:border-indigo-200 hover:bg-indigo-50/50 hover:text-indigo-600"
+            )}
+            title={isMasked ? "Klik untuk menampilkan angka & nominal" : "Klik untuk menyembunyikan angka & nominal (Mode privasi seperti perbankan)"}
+          >
+            {isMasked ? (
+              <>
+                <EyeOff className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-600 transition-transform group-hover:scale-110" />
+                <span>Tampilkan Angka</span>
+              </>
+            ) : (
+              <>
+                <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-slate-500 group-hover:text-indigo-600 transition-transform group-hover:scale-110" />
+                <span>Sembunyikan Angka</span>
+              </>
+            )}
+          </button>
         </div>
       </header>
 
@@ -201,10 +242,38 @@ export default function DashboardPage() {
       )}
 
       <section className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
-        <StatCard title="Omzet" value={formatIDR(metrics.totalRevenue)} description="Transaksi berhasil" icon={DollarSign} iconColor="border-indigo-100 bg-indigo-50 text-indigo-600" />
-        <StatCard title="Profit" value={formatIDR(metrics.totalProfit)} description={`Margin bersih ${metrics.averageProfitPercentage}%`} icon={TrendingUp} iconColor="border-emerald-100 bg-emerald-50 text-emerald-600" />
-        <StatCard title="Transaksi" value={metrics.totalTransactions} description={`${successRate}% berhasil diproses`} icon={Receipt} iconColor="border-blue-100 bg-blue-50 text-blue-600" />
-        <StatCard title="Customer" value={metrics.totalCustomers} description="Total pelanggan aktif" icon={Users} iconColor="border-violet-100 bg-violet-50 text-violet-600" />
+        <StatCard
+          title="Omzet"
+          value={isMasked ? "Rp ••••••••" : formatIDR(metrics.totalRevenue)}
+          description="Transaksi berhasil"
+          icon={DollarSign}
+          iconColor="border-indigo-100 bg-indigo-50 text-indigo-600"
+          isMasked={isMasked}
+        />
+        <StatCard
+          title="Profit"
+          value={isMasked ? "Rp ••••••••" : formatIDR(metrics.totalProfit)}
+          description={isMasked ? "Margin bersih ••%" : `Margin bersih ${metrics.averageProfitPercentage}%`}
+          icon={TrendingUp}
+          iconColor="border-emerald-100 bg-emerald-50 text-emerald-600"
+          isMasked={isMasked}
+        />
+        <StatCard
+          title="Transaksi"
+          value={isMasked ? "••••" : metrics.totalTransactions}
+          description={isMasked ? "••% berhasil diproses" : `${successRate}% berhasil diproses`}
+          icon={Receipt}
+          iconColor="border-blue-100 bg-blue-50 text-blue-600"
+          isMasked={isMasked}
+        />
+        <StatCard
+          title="Customer"
+          value={isMasked ? "••••" : metrics.totalCustomers}
+          description="Total pelanggan aktif"
+          icon={Users}
+          iconColor="border-violet-100 bg-violet-50 text-violet-600"
+          isMasked={isMasked}
+        />
       </section>
 
       <Card className="overflow-hidden border-slate-200 bg-white shadow-sm">
@@ -224,7 +293,9 @@ export default function DashboardPage() {
                     <Icon className="h-4 w-4" />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-base sm:text-xl font-black text-slate-950">{item.value}</p>
+                    <p className={cn("truncate text-base sm:text-xl font-black text-slate-950 transition-all duration-200", isMasked && "tracking-widest font-mono text-slate-700 select-none")}>
+                      {isMasked ? "•••" : item.value}
+                    </p>
                     <p className="flex items-center gap-1 truncate text-[11px] sm:text-xs font-medium text-slate-500">
                       <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", item.dot)} />
                       <span className="truncate">{item.label}</span>
@@ -246,12 +317,12 @@ export default function DashboardPage() {
             </div>
             <div className="flex items-center gap-2 sm:gap-3 text-[10px] sm:text-xs"><span className="flex items-center gap-1.5 text-slate-500"><span className="h-2 w-2 rounded-full bg-indigo-600" />Omzet</span><span className="flex items-center gap-1.5 text-slate-500"><span className="h-2 w-2 rounded-full bg-emerald-500" />Profit</span></div>
           </CardHeader>
-          <CardContent className="px-1 sm:px-4 pb-3 pt-4"><SalesTrendChart data={data.dailyData} /></CardContent>
+          <CardContent className="px-1 sm:px-4 pb-3 pt-4"><SalesTrendChart data={data.dailyData} isMasked={isMasked} /></CardContent>
         </Card>
 
         <Card className="border-slate-200 bg-white shadow-sm overflow-hidden">
           <CardHeader className="border-b border-slate-100 p-4 sm:p-5 pb-3 sm:pb-4">
-            <CardTitle className="flex items-center justify-between text-sm sm:text-base font-bold text-slate-950"><span className="flex items-center gap-2"><Receipt className="h-4 w-4 sm:h-5 sm:w-5 text-indigo-600" />Transaksi Terbaru</span><Badge variant="outline">{metrics.recentTransactions.length}</Badge></CardTitle>
+            <CardTitle className="flex items-center justify-between text-sm sm:text-base font-bold text-slate-950"><span className="flex items-center gap-2"><Receipt className="h-4 w-4 sm:h-5 sm:w-5 text-indigo-600" />Transaksi Terbaru</span><Badge variant="outline">{isMasked ? "••" : metrics.recentTransactions.length}</Badge></CardTitle>
             <CardDescription className="mt-0.5 text-[11px] sm:text-xs">Aktivitas terbaru pada periode terpilih</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
@@ -283,7 +354,9 @@ export default function DashboardPage() {
                       </p>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="text-xs sm:text-sm font-bold text-slate-900">{formatIDR(transaction.price)}</p>
+                      <p className={cn("text-xs sm:text-sm font-bold text-slate-900 transition-all duration-200", isMasked && "font-mono tracking-wider text-slate-700")}>
+                        {isMasked ? "Rp ••••••••" : formatIDR(transaction.price)}
+                      </p>
                       <StatusBadge value={transaction.status} />
                     </div>
                     <ChevronRight className="h-4 w-4 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-indigo-600 shrink-0" />

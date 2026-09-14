@@ -531,19 +531,50 @@ export function NotificationPreferences() {
             </div>
 
             {settings.customNotificationAudioName && (
-              <div className="mt-3.5 rounded-xl border border-indigo-100 bg-indigo-50/60 p-3 text-xs text-slate-700 space-y-1.5">
+              <div className="mt-3.5 rounded-xl border border-indigo-100 bg-indigo-50/60 p-3.5 text-xs text-slate-700 space-y-2.5">
                 <div className="flex items-center gap-2 font-bold text-indigo-950">
                   <Smartphone className="h-4 w-4 text-indigo-600 shrink-0" />
-                  <span>Agar Suara Custom Ini Berbunyi Saat Layar HP Mati / Web Ditutup:</span>
+                  <span>Petunjuk Notifikasi di HP (Layar Mati / Terkunci):</span>
                 </div>
                 <p className="text-[11px] leading-relaxed text-slate-600">
-                  Saat web/apk sedang dibuka, nada custom ini langsung berbunyi otomatis tanpa suara dobel bawaan HP. Jika HP sedang terkunci/layar mati, sistem Android mengatur suara melalui <b>Saluran Notifikasi HP</b>:
+                  Saat aplikasi sedang dibuka, nada custom Anda langsung berbunyi otomatis tanpa suara dobel. Saat HP terkunci / web ditutup, sistem HP mengatur suara notifikasi sebagai berikut:
                 </p>
-                <ol className="list-decimal list-inside text-[11px] space-y-1 font-medium text-slate-700 pl-0.5">
-                  <li>Klik tombol <b>Unduh ke HP</b> di atas.</li>
-                  <li>Di HP Anda, buka <b>Pengaturan HP → Aplikasi → CANDRA BOT (atau Chrome) → Notifikasi</b>.</li>
-                  <li>Pilih <b>Kategori / Saluran Notifikasi</b> → ketuk <b>Suara</b> → pilih file audio yang baru diunduh.</li>
-                </ol>
+
+                <div className="grid gap-2.5 sm:grid-cols-2 pt-1">
+                  {/* Panduan iPhone (iOS) */}
+                  <div className="rounded-lg border border-slate-200/80 bg-white p-3 shadow-2xs space-y-1.5">
+                    <p className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full bg-indigo-600" />
+                      Pengaturan iPhone (iOS)
+                    </p>
+                    <ol className="list-decimal list-inside text-[11px] space-y-1 text-slate-600 font-medium pl-0.5">
+                      <li>Buka <b>Pengaturan iPhone → Pemberitahuan → CANDRA BOT</b>.</li>
+                      <li>Centang <b>Layar Terkunci</b>, <b>Pusat Pemberitahuan</b>, &amp; <b>Spanduk</b>.</li>
+                      <li>Ubah <b>Gaya Spanduk</b> ke <b>Tetap</b> &amp; pastikan <b>Bunyi</b> aktif.</li>
+                      <li>Pastikan sakelar fisik hening di samping bodi iPhone tidak oranye.</li>
+                    </ol>
+                    <p className="text-[10px] text-slate-400 italic pt-0.5">
+                      *Catatan Apple: iOS menggunakan nada sistem resmi Apple saat layar terkunci untuk menjaga keamanan baterai.
+                    </p>
+                  </div>
+
+                  {/* Panduan Android */}
+                  <div className="rounded-lg border border-slate-200/80 bg-white p-3 shadow-2xs space-y-1.5">
+                    <p className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full bg-emerald-600" />
+                      Pengaturan Android
+                    </p>
+                    <ol className="list-decimal list-inside text-[11px] space-y-1 text-slate-600 font-medium pl-0.5">
+                      <li>Klik tombol <b>Unduh ke HP</b> di atas.</li>
+                      <li>Buka <b>Pengaturan HP → Aplikasi → CANDRA BOT → Notifikasi</b>.</li>
+                      <li>Pilih <b>Kategori Notifikasi</b> → <b>Suara</b>.</li>
+                      <li>Pilih file MP3 yang baru saja Anda unduh.</li>
+                    </ol>
+                    <p className="text-[10px] text-slate-400 italic pt-0.5">
+                      *Android memungkinkan memilih file suara custom langsung untuk nada notifikasi layar mati.
+                    </p>
+                  </div>
+                </div>
               </div>
             )}
           </div>

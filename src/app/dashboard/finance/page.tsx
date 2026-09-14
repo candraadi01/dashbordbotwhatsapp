@@ -127,10 +127,10 @@ export default function FinanceDashboardPage() {
             <button
               key={p}
               onClick={() => setPeriod(p)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors border ${
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors border ${
                 period === p 
-                  ? "bg-emerald-600 border-emerald-500 text-white shadow-lg shadow-emerald-600/20" 
-                  : "bg-white border-slate-300 text-slate-400 hover:bg-slate-100 hover:text-slate-800"
+                  ? "bg-emerald-600 border-emerald-500 text-white shadow-md shadow-emerald-600/20" 
+                  : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300"
               }`}
             >
               {labels[p as keyof typeof labels]}
@@ -270,38 +270,66 @@ export default function FinanceDashboardPage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-5 lg:grid-cols-2">
         {/* 4. PROFIT ANALYSIS (Product) */}
-        <Card className="border-slate-200 bg-white backdrop-blur-xl">
-          <CardHeader className="border-b border-slate-200 pb-4">
-            <CardTitle className="text-base font-bold text-slate-950 flex items-center gap-2">
-              <Package className="h-5 w-5 text-indigo-400" /> Profit by Product
-            </CardTitle>
+        <Card className="border-slate-200 bg-white shadow-sm overflow-hidden">
+          <CardHeader className="border-b border-slate-100 p-4 sm:p-5 pb-3 sm:pb-4 flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="text-sm sm:text-base font-bold text-slate-950 flex items-center gap-2">
+                <Package className="h-4 w-4 sm:h-5 sm:w-5 text-indigo-600" /> Profit by Product
+              </CardTitle>
+              <CardDescription className="text-xs text-slate-500 mt-0.5">Top 5 produk dengan kontribusi profit tertinggi</CardDescription>
+            </div>
+            <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-100 shrink-0">
+              Top 5
+            </span>
           </CardHeader>
           <CardContent className="p-0 overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 text-slate-400 font-semibold border-b border-slate-200">
+            <table className="w-full text-left text-xs min-w-[540px]">
+              <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-100 uppercase tracking-wider text-[10px]">
                 <tr>
-                  <th className="px-4 py-3">Produk</th>
-                  <th className="px-4 py-3 text-center">Terjual</th>
-                  <th className="px-4 py-3 text-right">Revenue</th>
-                  <th className="px-4 py-3 text-right">Profit</th>
-                  <th className="px-4 py-3 text-right">Margin</th>
+                  <th className="py-3 pl-4 pr-2 w-10 text-center">#</th>
+                  <th className="py-3 px-3">Produk</th>
+                  <th className="py-3 px-3 text-center whitespace-nowrap">Terjual</th>
+                  <th className="py-3 px-3 text-right whitespace-nowrap">Revenue</th>
+                  <th className="py-3 px-3 text-right whitespace-nowrap">Profit</th>
+                  <th className="py-3 pl-3 pr-4 text-right whitespace-nowrap">Margin</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
                 {productProfits.slice(0, 5).map((p, i) => (
-                  <tr key={i} className="hover:bg-slate-50">
-                    <td className="px-4 py-3 font-medium text-slate-800">{p.productName}</td>
-                    <td className="px-4 py-3 text-center">{p.soldCount}</td>
-                    <td className="px-4 py-3 text-right text-slate-400">{formatIDR(p.revenue)}</td>
-                    <td className="px-4 py-3 text-right font-bold text-indigo-300">{formatIDR(p.profit)}</td>
-                    <td className="px-4 py-3 text-right text-emerald-400">{p.margin.toFixed(1)}%</td>
+                  <tr key={i} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="py-3 pl-4 pr-2 text-center text-[11px] font-bold text-slate-400">
+                      {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}`}
+                    </td>
+                    <td className="py-3 px-3">
+                      <p className="font-bold text-slate-900 truncate max-w-[170px] sm:max-w-[210px]" title={p.productName}>
+                        {p.productName}
+                      </p>
+                    </td>
+                    <td className="py-3 px-3 text-center whitespace-nowrap">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700">
+                        {p.soldCount}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3 text-right whitespace-nowrap font-medium text-slate-600">
+                      {formatIDR(p.revenue)}
+                    </td>
+                    <td className="py-3 px-3 text-right whitespace-nowrap font-bold text-indigo-600">
+                      {formatIDR(p.profit)}
+                    </td>
+                    <td className="py-3 pl-3 pr-4 text-right whitespace-nowrap">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100">
+                        {p.margin.toFixed(1)}%
+                      </span>
+                    </td>
                   </tr>
                 ))}
                 {productProfits.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-4 py-6 text-center text-slate-500">Tidak ada data produk</td>
+                    <td colSpan={6} className="px-4 py-8 text-center text-slate-400 font-medium">
+                      Tidak ada data produk pada periode ini
+                    </td>
                   </tr>
                 )}
               </tbody>
@@ -310,37 +338,61 @@ export default function FinanceDashboardPage() {
         </Card>
 
         {/* 5. CUSTOMER VALUE ANALYSIS */}
-        <Card className="border-slate-200 bg-white backdrop-blur-xl">
-          <CardHeader className="border-b border-slate-200 pb-4">
-            <CardTitle className="text-base font-bold text-slate-950 flex items-center gap-2">
-              <Crown className="h-5 w-5 text-amber-400" /> Top Customer by Spending
-            </CardTitle>
+        <Card className="border-slate-200 bg-white shadow-sm overflow-hidden">
+          <CardHeader className="border-b border-slate-100 p-4 sm:p-5 pb-3 sm:pb-4 flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="text-sm sm:text-base font-bold text-slate-950 flex items-center gap-2">
+                <Crown className="h-4 w-4 sm:h-5 sm:w-5 text-amber-500" /> Top Customer by Spending
+              </CardTitle>
+              <CardDescription className="text-xs text-slate-500 mt-0.5">Pelanggan dengan total belanja tertinggi</CardDescription>
+            </div>
+            <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200 shrink-0">
+              Top 5
+            </span>
           </CardHeader>
           <CardContent className="p-0 overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 text-slate-400 font-semibold border-b border-slate-200">
+            <table className="w-full text-left text-xs min-w-[480px]">
+              <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-100 uppercase tracking-wider text-[10px]">
                 <tr>
-                  <th className="px-4 py-3">Customer</th>
-                  <th className="px-4 py-3 text-center">Total Order</th>
-                  <th className="px-4 py-3 text-right">Total Spending</th>
-                  <th className="px-4 py-3 text-right">Total Profit</th>
+                  <th className="py-3 pl-4 pr-2 w-10 text-center">#</th>
+                  <th className="py-3 px-3">Customer</th>
+                  <th className="py-3 px-3 text-center whitespace-nowrap">Total Order</th>
+                  <th className="py-3 px-3 text-right whitespace-nowrap">Total Spending</th>
+                  <th className="py-3 pl-3 pr-4 text-right whitespace-nowrap">Total Profit</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
                 {customerValues.slice(0, 5).map((c, i) => (
-                  <tr key={i} className="hover:bg-slate-50">
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-slate-800">{c.customerName}</div>
-                      <div className="text-[10px] text-slate-500 mt-0.5">{c.customerPhone}</div>
+                  <tr key={i} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="py-3 pl-4 pr-2 text-center text-[11px] font-bold text-slate-400">
+                      {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}`}
                     </td>
-                    <td className="px-4 py-3 text-center">{c.totalOrder}</td>
-                    <td className="px-4 py-3 text-right font-bold text-emerald-300">{formatIDR(c.totalSpending)}</td>
-                    <td className="px-4 py-3 text-right text-indigo-400">{formatIDR(c.totalProfit)}</td>
+                    <td className="py-3 px-3">
+                      <p className="font-bold text-slate-900 truncate max-w-[160px] sm:max-w-[200px]" title={c.customerName}>
+                        {c.customerName}
+                      </p>
+                      <p className="text-[10px] text-slate-500 font-mono mt-0.5 truncate">
+                        {c.customerPhone}
+                      </p>
+                    </td>
+                    <td className="py-3 px-3 text-center whitespace-nowrap">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700">
+                        {c.totalOrder} order
+                      </span>
+                    </td>
+                    <td className="py-3 px-3 text-right whitespace-nowrap font-bold text-emerald-600">
+                      {formatIDR(c.totalSpending)}
+                    </td>
+                    <td className="py-3 pl-3 pr-4 text-right whitespace-nowrap font-bold text-indigo-600">
+                      {formatIDR(c.totalProfit)}
+                    </td>
                   </tr>
                 ))}
                 {customerValues.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="px-4 py-6 text-center text-slate-500">Tidak ada data customer</td>
+                    <td colSpan={5} className="px-4 py-8 text-center text-slate-400 font-medium">
+                      Tidak ada data customer pada periode ini
+                    </td>
                   </tr>
                 )}
               </tbody>

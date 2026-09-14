@@ -8,6 +8,8 @@ const outputDir = path.resolve('D:/BOT WHSATAPP SUPABASE/BOT CANDRA/PANEL BUATAN
 const stagingDir = path.join(outputDir, '_staging');
 const finalZipName = 'CAKSTORE_BOT_PANEL_FULL_ANTIGRAVITY.zip';
 const finalZipPath = path.join(outputDir, finalZipName);
+const finalTarGzName = 'CAKSTORE_BOT_PANEL_FULL_ANTIGRAVITY.tar.gz';
+const finalTarGzPath = path.join(outputDir, finalTarGzName);
 
 console.log('1. Preparing staging directory...');
 if (fs.existsSync(stagingDir)) {
@@ -28,39 +30,39 @@ function copyRecursive(src, dest) {
   if (stat.isDirectory()) {
     if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
     for (const file of fs.readdirSync(src)) {
-      // Exclude session, env, zip, node_modules
       if (file.startsWith('.env')) continue;
       if (file.toLowerCase().includes('session')) continue;
       if (file.toLowerCase().includes('auth_info')) continue;
       if (file.endsWith('.zip')) continue;
+      if (file.endsWith('.tar.gz')) continue;
       if (file === 'node_modules') continue;
 
       copyRecursive(path.join(src, file), path.join(dest, file));
     }
   } else {
-    // Exclude env, zip
     const basename = path.basename(src);
     if (basename.startsWith('.env')) return;
     if (basename.toLowerCase().includes('session')) return;
     if (basename.toLowerCase().includes('auth_info')) return;
     if (basename.endsWith('.zip')) return;
+    if (basename.endsWith('.tar.gz')) return;
 
     fs.copyFileSync(src, dest);
   }
 }
 
-// Copy active bot panel files
 for (const item of fs.readdirSync(botPanelDir)) {
   if (item.startsWith('.env')) continue;
   if (item.toLowerCase().includes('session')) continue;
   if (item.toLowerCase().includes('auth_info')) continue;
   if (item.endsWith('.zip')) continue;
+  if (item.endsWith('.tar.gz')) continue;
   if (item === 'node_modules') continue;
 
   copyRecursive(path.join(botPanelDir, item), path.join(stagingDir, item));
 }
 
-// Explicitly ensure the latest chiww.js and transactionStatusSync.js from bot-patch are in staging
+// Ensure latest patched files
 const patchedChiww = path.resolve(__dirname, '../bot-patch/chiww.js');
 if (fs.existsSync(patchedChiww)) {
   fs.copyFileSync(patchedChiww, path.join(stagingDir, 'chiww.js'));
@@ -75,7 +77,6 @@ if (fs.existsSync(patchedStatusSync)) {
   console.log('Verified: Patched transactionStatusSync.js copied to staging');
 }
 
-// Explicitly ensure database/bot_settings.json and database/img/payment/payment.jpg
 const dbSettings = path.resolve(__dirname, '../data/bot_settings.json');
 if (fs.existsSync(dbSettings)) {
   const stagingDb = path.join(stagingDir, 'database');
@@ -92,7 +93,7 @@ if (fs.existsSync(qrisImg)) {
   console.log('Verified: payment.jpg copied to staging');
 }
 
-// Remove any residual .env, session, zip in staging
+// Clean any forbidden files
 function cleanForbidden(dir) {
   for (const f of fs.readdirSync(dir)) {
     const full = path.join(dir, f);
@@ -105,7 +106,7 @@ function cleanForbidden(dir) {
         cleanForbidden(full);
       }
     } else {
-      if (f.startsWith('.env') || f.endsWith('.zip') || f.toLowerCase().includes('session') || f.toLowerCase().includes('auth_info')) {
+      if (f.startsWith('.env') || f.endsWith('.zip') || f.endsWith('.tar.gz') || f.toLowerCase().includes('session') || f.toLowerCase().includes('auth_info')) {
         console.log('Removing forbidden file:', full);
         fs.rmSync(full, { force: true });
       }
@@ -114,22 +115,31 @@ function cleanForbidden(dir) {
 }
 cleanForbidden(stagingDir);
 
-console.log('4. Creating ZIP archive in target folder...');
-if (fs.existsSync(finalZipPath)) {
-  fs.rmSync(finalZipPath, { force: true });
-}
+console.log('4. Creating clean POSIX ZIP archive using bsdtar (Linux/Pterodactyl compatible)...');
+if (fs.existsSync(finalZipPath)) fs.rmSync(finalZipPath, { force: true });
+if (fs.existsSync(finalTarGzPath)) fs.rmSync(finalTarGzPath, { force: true });
 
-// Compress staging directory contents to finalZipPath
-execSync(`powershell -Command "Compress-Archive -Path '${stagingDir}\\*' -DestinationPath '${finalZipPath}' -Force"`, { stdio: 'inherit' });
+// Get top level items
+const topLevelItems = fs.readdirSync(stagingDir);
+const itemsArgs = topLevelItems.map(i => `"${i}"`).join(' ');
 
-console.log('5. Verifying final zip file...');
-if (fs.existsSync(finalZipPath)) {
-  const zipStat = fs.statSync(finalZipPath);
-  console.log(`SUCCESS: Zip created at ${finalZipPath} (${(zipStat.size / 1024).toFixed(1)} KB)`);
+// Create standard ZIP with POSIX forward-slashes
+execSync(`tar.exe -a -cf "${finalZipPath}" -C "${stagingDir}" ${itemsArgs}`, { stdio: 'inherit' });
+// Also create standard tar.gz
+execSync(`tar.exe -czf "${finalTarGzPath}" -C "${stagingDir}" ${itemsArgs}`, { stdio: 'inherit' });
+
+console.log('5. Verifying final zip file entries...');
+const zipListing = execSync(`tar.exe -tf "${finalZipPath}"`, { encoding: 'utf8' });
+console.log('Zip listing preview (first 10 lines):');
+console.log(zipListing.split('\n').slice(0, 10).join('\n'));
+
+// Check for forbidden characters
+if (zipListing.includes('\\') || zipListing.includes('./')) {
+  console.warn('WARNING: Listing still contains backslashes or dot-slash!');
 } else {
-  throw new Error('Failed to create zip file');
+  console.log('SUCCESS: All paths in zip use clean POSIX format without backslashes or ./ prefix!');
 }
 
 // Clean staging folder
 fs.rmSync(stagingDir, { recursive: true, force: true });
-console.log('Staging cleanup complete.');
+console.log('Finished successfully.');

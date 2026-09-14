@@ -492,6 +492,7 @@ Ketik cs untuk chat langsung dengan Customer Service!💬`;
       const transactionData = {
         userName: context.userName,
         userNumber: m.sender.replace('@s.whatsapp.net', ''),
+        customerJid: m.chat,
         category: context.chosenCategory,
         duration: context.chosenDuration,
         price: context.chosenPrice,
@@ -540,8 +541,15 @@ Ketik cs untuk chat langsung dengan Customer Service!💬`;
 👤 An (${paySettings.accountName || '-'})
 
 ${paySettings.footerNotes || ''}`.trim();
+
       if (fs.existsSync(paymentImagePath)) {
-        await chiwa.sendMessage(m.chat, { image: { url: paymentImagePath }, caption }, { quoted: m });
+        try {
+          const image = fs.readFileSync(paymentImagePath);
+          await chiwa.sendMessage(m.chat, { image, caption }, { quoted: m });
+        } catch (imgErr) {
+          console.error('[PAYMENT IMAGE SEND ERROR]', imgErr.message);
+          await chiwa.sendMessage(m.chat, { text: caption }, { quoted: m });
+        }
       } else {
         await chiwa.sendMessage(m.chat, { text: caption }, { quoted: m });
       }

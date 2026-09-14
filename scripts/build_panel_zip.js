@@ -77,6 +77,14 @@ if (fs.existsSync(patchedStatusSync)) {
   console.log('Verified: Patched transactionStatusSync.js copied to staging');
 }
 
+const patchedProfitTracker = path.resolve(__dirname, '../bot-patch/plugins/profitTracker.js');
+if (fs.existsSync(patchedProfitTracker)) {
+  const pluginsDir = path.join(stagingDir, 'plugins');
+  if (!fs.existsSync(pluginsDir)) fs.mkdirSync(pluginsDir, { recursive: true });
+  fs.copyFileSync(patchedProfitTracker, path.join(pluginsDir, 'profitTracker.js'));
+  console.log('Verified: Patched profitTracker.js copied to staging');
+}
+
 const dbSettings = path.resolve(__dirname, '../data/bot_settings.json');
 if (fs.existsSync(dbSettings)) {
   const stagingDb = path.join(stagingDir, 'database');

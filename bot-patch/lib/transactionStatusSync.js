@@ -18,8 +18,16 @@ function ownerJid() {
 
 function customerJid(phone) {
   if (!phone) return null;
-  const raw = String(phone).replace(/\D/g, '');
+  const str = String(phone).trim();
+  if (str.includes('@lid') || str.includes('@s.whatsapp.net')) {
+    return str;
+  }
+  const raw = str.replace(/\D/g, '');
   if (!raw) return null;
+  // WhatsApp LID is typically 15-16 digits starting with 19...
+  if (raw.length >= 15 || str.includes('lid')) {
+    return `${raw}@lid`;
+  }
   const normalized = raw.startsWith('08') ? `62${raw.slice(1)}` : raw;
   return `${normalized}@s.whatsapp.net`;
 }
@@ -94,8 +102,27 @@ async function processAction(row) {
     const transactionId = row.transaction_id || row.id;
     const mapping = findMapping(transactionId);
     const owner = ownerJid();
+    const targetCustJid = mapping?.customerJid || customerJid(row.customer_phone);
 
-    // 1. Berikan reaksi emoji pada pesan notifikasi awal owner di WhatsApp
+    // 1. Kirim pesan notifikasi custom ke Customer sesuai setingan dashboard (Photo 4)
+    if (targetCustJid) {
+      try {
+        const settings = getBotSettings();
+        const defaultTpls = {
+          pending: "Halo, Pesanan kamu dengan ID *{id}* untuk produk *{product}* Kategori *{category}* saat ini berstatus *PENDING*. Mohon menunggu konfirmasi admin ya!",
+          success: "Halo, Pesanan kamu dengan ID *{id}* untuk produk *{product}* Kategori *{category}* saat ini berstatus *BERHASIL*. Terima kasih telah berbelanja!",
+          cancelled: "Halo, Pesanan kamu dengan ID *{id}* untuk produk *{product}* Kategori *{category}* saat ini berstatus *DIBATALKAN*. Silakan hubungi admin jika ada kendala."
+        };
+        const rawTpl = settings?.statusMessages?.[row.status] || defaultTpls[row.status] || defaultTpls.pending;
+        const customerMsg = formatCustomerMessage(rawTpl, row, meta);
+        await activeSocket.sendMessage(targetCustJid, { text: customerMsg });
+        console.log(`[CUSTOMER STATUS NOTIF] Berhasil dikirim ke ${targetCustJid} (${transactionId})`);
+      } catch (error) {
+        console.error('[CUSTOMER STATUS NOTIF ERROR]', transactionId, error.message);
+      }
+    }
+
+    // 2. Berikan reaksi emoji pada pesan notifikasi awal owner di WhatsApp
     if (owner && mapping?.messageKey) {
       try {
         await activeSocket.sendMessage(owner, {
@@ -106,8 +133,14 @@ async function processAction(row) {
       }
     }
 
-    // 2. Kirim info pemberitahuan ke nomor Owner
-    if (owner) {
+    // 3. Kirim info pemberitahuan admin HANYA jika nomor customer BUKAN nomor owner
+    // (jika owner mengetes dari nomor sendiri, pesan custom di atas sudah diterima)
+    const isOwnerSelfTest = owner && targetCustJid && (
+      owner.replace(/\D/g, '') === targetCustJid.replace(/\D/g, '') ||
+      owner === targetCustJid
+    );
+
+    if (owner && !isOwnerSelfTest) {
       try {
         const cleanCustPhone = String(row.customer_phone || '-').replace(/@.*$/, '');
         const priceFormatted = Number(row.price || 0).toLocaleString('id-ID');
@@ -132,25 +165,6 @@ async function processAction(row) {
         await activeSocket.sendMessage(owner, { text });
       } catch (error) {
         console.error('[OWNER STATUS NOTIFICATION]', transactionId, error.message);
-      }
-    }
-
-    // 3. Kirim pesan notifikasi custom ke Customer sesuai setingan dashboard (Photo 4)
-    const targetCustJid = customerJid(row.customer_phone) || mapping?.customerJid;
-    if (targetCustJid) {
-      try {
-        const settings = getBotSettings();
-        const defaultTpls = {
-          pending: "Halo, Pesanan kamu dengan ID *{id}* untuk produk *{product}* Kategori *{category}* saat ini berstatus *PENDING*. Mohon menunggu konfirmasi admin ya!",
-          success: "Halo, Pesanan kamu dengan ID *{id}* untuk produk *{product}* Kategori *{category}* saat ini berstatus *BERHASIL*. Terima kasih telah berbelanja!",
-          cancelled: "Halo, Pesanan kamu dengan ID *{id}* untuk produk *{product}* Kategori *{category}* saat ini berstatus *DIBATALKAN*. Silakan hubungi admin jika ada kendala."
-        };
-        const rawTpl = settings?.statusMessages?.[row.status] || defaultTpls[row.status] || defaultTpls.pending;
-        const customerMsg = formatCustomerMessage(rawTpl, row, meta);
-        await activeSocket.sendMessage(targetCustJid, { text: customerMsg });
-        console.log(`[CUSTOMER STATUS NOTIF] Berhasil dikirim ke ${targetCustJid} (${transactionId})`);
-      } catch (error) {
-        console.error('[CUSTOMER STATUS NOTIF ERROR]', transactionId, error.message);
       }
     }
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
+import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,8 +32,8 @@ export interface BotSettings {
 
 const defaultBotSettings: BotSettings = {
   statusMessages: {
-    pending: "Pesanan Anda sedang ditinjau kembali oleh admin.",
-    success: "Pembayaran Anda sudah dikonfirmasi. Pesanan akan segera diproses.",
+    pending: "Halo, Pesanan kamu dengan ID *{id}* untuk produk *{product}* Kategori *{category}* saat ini berstatus *PENDING*. Mohon menunggu konfirmasi admin ya!",
+    success: "Halo, Pesanan kamu dengan ID *{id}* untuk produk *{product}* Kategori *{category}* saat ini berstatus *BERHASIL*. Terima kasih telah berbelanja!",
     cancelled: "Pesanan Anda dibatalkan. Silakan hubungi admin jika memerlukan bantuan.",
   },
   payment: {
@@ -46,6 +47,13 @@ const defaultBotSettings: BotSettings = {
   },
   updatedAt: Date.now(),
 };
+
+function getSupabaseServer() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://ikokxobkeufhljhgvjqu.supabase.co";
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+  if (!url || !key) return null;
+  return createClient(url, key);
+}
 
 function readBotSettings(): BotSettings {
   try {
@@ -107,6 +115,25 @@ export async function POST(req: NextRequest) {
     syncToFile(path.join(process.cwd(), "database", "bot_settings.json"), jsonStr);
     syncToFile(BOT_PANEL_SETTINGS, jsonStr);
     syncToFile(BOT_PANEL_BACKUP_SETTINGS, jsonStr);
+
+    // Sinkronkan ke Supabase bot_instances table (id: bot_settings) secara non-blocking
+    const sb = getSupabaseServer();
+    if (sb) {
+      Promise.race([
+        sb.from("bot_instances").upsert({
+          id: "bot_settings",
+          name: "Bot Settings Configuration",
+          status: "online",
+          version: "2.0.0",
+          last_seen: new Date().toISOString(),
+          metadata: updated as any,
+          updated_at: new Date().toISOString()
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 3000))
+      ]).catch((sbErr) => {
+        console.warn("[bot/settings Supabase Sync]", sbErr?.message || sbErr);
+      });
+    }
 
     return NextResponse.json({ ok: true, success: true, settings: updated, data: updated });
   } catch (err: any) {

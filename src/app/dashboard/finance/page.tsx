@@ -48,7 +48,7 @@ const DEFAULT_SETTINGS: BotSettingsData = {
   statusMessages: {
     pending: "Halo, Pesanan kamu dengan ID *{id}* untuk produk *{product}* Kategori *{category}* saat ini berstatus *PENDING*. Mohon menunggu konfirmasi admin ya!",
     success: "Halo, Pesanan kamu dengan ID *{id}* untuk produk *{product}* Kategori *{category}* saat ini berstatus *BERHASIL*. Terima kasih telah berbelanja!",
-    cancelled: "Halo, Pesanan kamu dengan ID *{id}* untuk produk *{product}* Kategori *{category}* saat ini berstatus *DIBATALKAN*. Silakan hubungi admin jika ada kendala."
+    cancelled: "Pesanan Anda dibatalkan. Silakan hubungi admin jika memerlukan bantuan."
   },
   payment: {
     greetingTemplate: "Hello Kak *{customer}* 👋\n\ntotalnya jadi : *{total}*{discount}\nsilahkan lakukan pembayaran ya",

@@ -47,14 +47,53 @@ function findMapping(transactionId) {
   return null;
 }
 
+let inMemorySettings = null;
+
+const DEFAULT_TEMPLATES = {
+  pending: "Halo, Pesanan kamu dengan ID *{id}* untuk produk *{product}* Kategori *{category}* saat ini berstatus *PENDING*. Mohon menunggu konfirmasi admin ya!",
+  success: "Halo, Pesanan kamu dengan ID *{id}* untuk produk *{product}* Kategori *{category}* saat ini berstatus *BERHASIL*. Terima kasih telah berbelanja!",
+  cancelled: "Pesanan Anda dibatalkan. Silakan hubungi admin jika memerlukan bantuan."
+};
+
 function getBotSettings() {
-  return readJson(settingsFile, {
-    statusMessages: {
-      pending: "Halo, Pesanan kamu dengan ID *{id}* untuk produk *{product}* Kategori *{category}* saat ini berstatus *PENDING*. Mohon menunggu konfirmasi admin ya!",
-      success: "Halo, Pesanan kamu dengan ID *{id}* untuk produk *{product}* Kategori *{category}* saat ini berstatus *BERHASIL*. Terima kasih telah berbelanja!",
-      cancelled: "Halo, Pesanan kamu dengan ID *{id}* untuk produk *{product}* Kategori *{category}* saat ini berstatus *DIBATALKAN*. Silakan hubungi admin jika ada kendala."
+  if (inMemorySettings && inMemorySettings.statusMessages) {
+    return inMemorySettings;
+  }
+  const fromDisk = readJson(settingsFile, null);
+  if (fromDisk && fromDisk.statusMessages) {
+    return fromDisk;
+  }
+  return {
+    statusMessages: { ...DEFAULT_TEMPLATES }
+  };
+}
+
+async function fetchRemoteSettings() {
+  if (!repository.enabled) return null;
+  try {
+    const { data, error } = await supabase
+      .from('bot_instances')
+      .select('metadata')
+      .eq('id', 'bot_settings')
+      .maybeSingle();
+
+    if (data && data.metadata && data.metadata.statusMessages) {
+      inMemorySettings = data.metadata;
+      try {
+        writeJsonAtomic(settingsFile, data.metadata);
+      } catch (_) {}
+      return data.metadata;
     }
-  });
+  } catch (err) {
+    console.error('[SETTINGS REMOTE FETCH ERROR]', err.message);
+  }
+  return null;
+}
+
+async function getLatestBotSettings() {
+  const remote = await fetchRemoteSettings();
+  if (remote) return remote;
+  return getBotSettings();
 }
 
 function statusMeta(status) {
@@ -104,25 +143,22 @@ async function processAction(row) {
     const owner = ownerJid();
     const targetCustJid = mapping?.customerJid || customerJid(row.customer_phone);
 
-    // 1. Kirim pesan notifikasi custom ke Customer sesuai setingan dashboard (Photo 4)
+    // 1. Ambil setting template pesan terbaru langsung dari Supabase / cache lokal
+    const settings = await getLatestBotSettings();
+    const rawTpl = settings?.statusMessages?.[row.status] || DEFAULT_TEMPLATES[row.status] || DEFAULT_TEMPLATES.cancelled;
+    const customerMsg = formatCustomerMessage(rawTpl, row, meta);
+
+    // 2. Kirim pesan notifikasi custom HANYA ke Customer sesuai setingan dashboard
     if (targetCustJid) {
       try {
-        const settings = getBotSettings();
-        const defaultTpls = {
-          pending: "Halo, Pesanan kamu dengan ID *{id}* untuk produk *{product}* Kategori *{category}* saat ini berstatus *PENDING*. Mohon menunggu konfirmasi admin ya!",
-          success: "Halo, Pesanan kamu dengan ID *{id}* untuk produk *{product}* Kategori *{category}* saat ini berstatus *BERHASIL*. Terima kasih telah berbelanja!",
-          cancelled: "Halo, Pesanan kamu dengan ID *{id}* untuk produk *{product}* Kategori *{category}* saat ini berstatus *DIBATALKAN*. Silakan hubungi admin jika ada kendala."
-        };
-        const rawTpl = settings?.statusMessages?.[row.status] || defaultTpls[row.status] || defaultTpls.pending;
-        const customerMsg = formatCustomerMessage(rawTpl, row, meta);
         await activeSocket.sendMessage(targetCustJid, { text: customerMsg });
-        console.log(`[CUSTOMER STATUS NOTIF] Berhasil dikirim ke ${targetCustJid} (${transactionId})`);
+        console.log(`[CUSTOMER STATUS NOTIF] Berhasil dikirim ke ${targetCustJid} (${transactionId}): "${customerMsg}"`);
       } catch (error) {
         console.error('[CUSTOMER STATUS NOTIF ERROR]', transactionId, error.message);
       }
     }
 
-    // 2. Berikan reaksi emoji pada pesan notifikasi awal owner di WhatsApp
+    // 3. Berikan reaksi emoji pada pesan notifikasi awal di WhatsApp jika ada key mapping
     if (owner && mapping?.messageKey) {
       try {
         await activeSocket.sendMessage(owner, {
@@ -133,41 +169,7 @@ async function processAction(row) {
       }
     }
 
-    // 3. Kirim info pemberitahuan admin HANYA jika nomor customer BUKAN nomor owner
-    // (jika owner mengetes dari nomor sendiri, pesan custom di atas sudah diterima)
-    const isOwnerSelfTest = owner && targetCustJid && (
-      owner.replace(/\D/g, '') === targetCustJid.replace(/\D/g, '') ||
-      owner === targetCustJid
-    );
-
-    if (owner && !isOwnerSelfTest) {
-      try {
-        const cleanCustPhone = String(row.customer_phone || '-').replace(/@.*$/, '');
-        const priceFormatted = Number(row.price || 0).toLocaleString('id-ID');
-        const profitFormatted = Number(row.profit_amount || 0).toLocaleString('id-ID');
-
-        let text = `🔔 *INFO UPDATE TRANSAKSI (DASHBOARD)*\n\n` +
-          `🆔 *${transactionId}*\n` +
-          `👤 Customer: ${row.customer_name || '-'}\n` +
-          `📱 No. Customer: ${cleanCustPhone}\n` +
-          `🛍️ Produk: ${row.product_name}\n` +
-          `📦 Kategori: ${row.category || '-'}\n` +
-          `⏱️ Durasi: ${row.duration || '-'}\n` +
-          `💵 Total Bayar: Rp ${priceFormatted}\n`;
-
-        if (row.profit_amount) {
-          text += `💰 Profit: Rp ${profitFormatted}\n`;
-        }
-
-        text += `📌 Status: *${meta.label}* ${meta.emoji}\n\n` +
-          `ℹ️ ${meta.desc}`;
-
-        await activeSocket.sendMessage(owner, { text });
-      } catch (error) {
-        console.error('[OWNER STATUS NOTIFICATION]', transactionId, error.message);
-      }
-    }
-
+    // Tandai action status sinkronisasi selesai di database
     await repository.markDashboardStatusSynced(row.id);
     console.log(`[DASHBOARD STATUS] ${transactionId} -> ${meta.label} tersinkron`);
   } catch (error) {
@@ -190,6 +192,35 @@ async function pollPending() {
 function startTransactionStatusSync(socket) {
   activeSocket = socket;
   if (!repository.enabled) return console.log('[DASHBOARD STATUS] Supabase belum aktif');
+
+  // Load settings remote Supabase on start
+  fetchRemoteSettings().then(st => {
+    if (st) console.log('[BOT SETTINGS] Pengaturan template berhasil dimuat dari Supabase');
+  }).catch(e => console.error('[BOT SETTINGS INIT]', e.message));
+
+  // Listen to realtime changes on bot_instances where id = bot_settings
+  try {
+    supabase.channel('bot-settings-live-sync')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'bot_instances',
+        filter: 'id=eq.bot_settings'
+      }, (payload) => {
+        if (payload.new && payload.new.metadata && payload.new.metadata.statusMessages) {
+          inMemorySettings = payload.new.metadata;
+          try {
+            writeJsonAtomic(settingsFile, payload.new.metadata);
+          } catch (_) {}
+          console.log('[BOT SETTINGS] Realtime update template pesan diterima dari Dashboard');
+        }
+      })
+      .subscribe((status) => console.log(`[BOT SETTINGS CHANNEL] Realtime ${status}`));
+  } catch (err) {
+    console.warn('[BOT SETTINGS CHANNEL]', err.message);
+  }
+
+  // Subscribe to transactions changes
   if (!channel) {
     channel = supabase.channel('bot-dashboard-transaction-actions')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'transactions' }, (payload) => void processAction(payload.new))

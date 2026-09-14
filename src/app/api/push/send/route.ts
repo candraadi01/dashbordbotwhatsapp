@@ -3,6 +3,8 @@ import webpush from "web-push";
 import { createClient } from "@supabase/supabase-js";
 import { pushSubscriptionStore } from "@/lib/pushSubscriptionStore";
 
+import { getServerPreferences } from "@/app/api/notifications/preferences/route";
+
 // Konfigurasi VAPID
 const vapidSubject = process.env.VAPID_SUBJECT || "mailto:admin@candradashboard.com";
 const vapidPublicKey =
@@ -14,7 +16,7 @@ const vapidPrivateKey =
 try {
   webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey);
 } catch (e) {
-  console.error("[push/send] VAPID configuration error:", e);
+  console.warn("[push/send] VAPID configuration warning:", e);
 }
 
 function getAdminClient() {
@@ -50,6 +52,12 @@ export async function POST(req: NextRequest) {
     // 2. Parse payload
     const body = await req.json().catch(() => ({}));
 
+    // Ambil filter preferensi yang disetel oleh user di menu Settings
+    const prefs = getServerPreferences();
+    if (!prefs.notificationEnabled) {
+      return NextResponse.json({ ok: true, skipped: true, reason: "notifications_disabled_by_user" });
+    }
+
     let title = "CANDRA BOT";
     let message = "Ada aktivitas pesanan baru di toko Anda";
     let url = "/dashboard/transactions";
@@ -79,6 +87,10 @@ export async function POST(req: NextRequest) {
           : "";
 
         if (eventType === "INSERT") {
+          // Cek preferensi: jika user menonaktifkan notifikasi transaksi baru, abaikan push
+          if (!prefs.notificationNewTransaction) {
+            return NextResponse.json({ ok: true, skipped: true, reason: "new_transaction_disabled" });
+          }
           title = "🛒 Transaksi Baru Masuk!";
           message = `${customer} memesan ${product}${priceFormatted} · #${txId}`;
           tag = `candra-txn-${txId}`;
@@ -90,11 +102,26 @@ export async function POST(req: NextRequest) {
           }
 
           if (status === "cancelled") {
+            // Cek preferensi: jika user menonaktifkan status gagal/dibatalkan
+            if (!prefs.notificationStatusCancelled) {
+              return NextResponse.json({ ok: true, skipped: true, reason: "status_cancelled_disabled" });
+            }
             title = "❌ Transaksi Dibatalkan";
             message = `Pesanan #${txId} (${product}) milik ${customer} telah dibatalkan.`;
           } else if (status === "success") {
+            // Cek preferensi: jika user menonaktifkan status berhasil
+            if (!prefs.notificationStatusSuccess) {
+              return NextResponse.json({ ok: true, skipped: true, reason: "status_success_disabled" });
+            }
             title = "✅ Pembayaran Berhasil";
             message = `Pesanan #${txId} (${product}) milik ${customer} telah dikonfirmasi berhasil.`;
+          } else if (status === "pending") {
+            // Cek preferensi: jika user menonaktifkan status pending
+            if (!prefs.notificationStatusPending) {
+              return NextResponse.json({ ok: true, skipped: true, reason: "status_pending_disabled" });
+            }
+            title = "⏳ Menunggu Konfirmasi";
+            message = `Pesanan #${txId} (${product}) milik ${customer} menunggu konfirmasi.`;
           } else {
             title = "🔄 Status Transaksi Diperbarui";
             message = `#${txId} ${customer} → ${statusLabel(status)}`;
@@ -105,7 +132,23 @@ export async function POST(req: NextRequest) {
         url = `/dashboard/transactions?edit=${encodeURIComponent(txId)}`;
       }
     } else if (body.title) {
-      // Format manual (tes push dari tombol dashboard)
+      // Format manual (tes push dari tombol dashboard / NotificationCenter)
+      const isTest = body.isTest || (typeof body.title === "string" && body.title.includes("Tes"));
+      if (!isTest) {
+        if (body.status === "cancelled" && !prefs.notificationStatusCancelled) {
+          return NextResponse.json({ ok: true, skipped: true, reason: "status_cancelled_disabled" });
+        }
+        if (body.status === "success" && !prefs.notificationStatusSuccess) {
+          return NextResponse.json({ ok: true, skipped: true, reason: "status_success_disabled" });
+        }
+        if (body.status === "pending" && !prefs.notificationStatusPending) {
+          return NextResponse.json({ ok: true, skipped: true, reason: "status_pending_disabled" });
+        }
+        if (body.eventType === "INSERT" && !prefs.notificationNewTransaction) {
+          return NextResponse.json({ ok: true, skipped: true, reason: "new_transaction_disabled" });
+        }
+      }
+
       title = body.title;
       message = body.body || message;
       url = body.url || url;

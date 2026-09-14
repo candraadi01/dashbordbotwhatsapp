@@ -592,7 +592,9 @@ export function NotificationCenter() {
           body: notif.message,
           url: `/dashboard/transactions?edit=${encodeURIComponent(notif.transactionId || "")}`,
           transactionId: notif.transactionId,
-          sound: cur.notificationSound === "custom" ? (cur.customNotificationAudio || "/api/notifications/sound") : undefined,
+          status: status,
+          eventType: isInsert ? "INSERT" : "UPDATE",
+          sound: "/api/notifications/sound",
         }),
       }).catch((err) => console.warn("[NotificationCenter] Web Push dispatch failed:", err));
 
@@ -635,7 +637,12 @@ export function NotificationCenter() {
           if (dismissed.has(notifId) || dismissed.has(item.id)) continue;
           if (recentEventsRef.current.has(notifId)) continue;
 
-          // If created in the last 4 minutes or pending
+          // FILTER KETAT SESUAI PREFERENSI USER:
+          if (item.status === "success" && !cur.notificationStatusSuccess) continue;
+          if (item.status === "cancelled" && !cur.notificationStatusCancelled) continue;
+          if (item.status === "pending" && !cur.notificationStatusPending && !cur.notificationNewTransaction) continue;
+
+          // If created in the last 4 minutes
           const ageMs = now - new Date(item.created_at).getTime();
           if (ageMs < 4 * 60 * 1000) {
             recentEventsRef.current.set(notifId, now);
@@ -651,8 +658,12 @@ export function NotificationCenter() {
             return [...toAdd, ...prev].slice(0, 30);
           });
 
-          // Kirim Web Push ke HP untuk transaksi baru yang terdeteksi via polling
+          // Kirim Web Push ke HP untuk transaksi baru yang terdeteksi via polling (hanya jika diizinkan)
           for (const item of newItems) {
+            if (item.status === "success" && !cur.notificationStatusSuccess) continue;
+            if (item.status === "cancelled" && !cur.notificationStatusCancelled) continue;
+            if (item.status === "pending" && !cur.notificationStatusPending && !cur.notificationNewTransaction) continue;
+
             void fetch("/api/push/send", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -661,7 +672,9 @@ export function NotificationCenter() {
                 body: item.message,
                 url: `/dashboard/transactions?edit=${encodeURIComponent(item.transactionId || "")}`,
                 transactionId: item.transactionId,
-                sound: cur.notificationSound === "custom" ? (cur.customNotificationAudio || "/api/notifications/sound") : undefined,
+                status: item.status,
+                eventType: item.type,
+                sound: "/api/notifications/sound",
               }),
             }).catch((err) => console.warn("[NotificationCenter Polling] Web Push dispatch failed:", err));
           }

@@ -82,6 +82,23 @@ export function useSettings() {
       }
     }
 
+    // 4. Sinkronkan preferensi notifikasi ke server agar Web Push & Webhook menghormati filter user
+    try {
+      void fetch("/api/notifications/preferences", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          notificationEnabled: next.notificationEnabled,
+          notificationNewTransaction: next.notificationNewTransaction,
+          notificationStatusSuccess: next.notificationStatusSuccess,
+          notificationStatusPending: next.notificationStatusPending,
+          notificationStatusCancelled: next.notificationStatusCancelled,
+          notificationSound: next.notificationSound,
+          notificationVolume: next.notificationVolume,
+        }),
+      }).catch(() => {});
+    } catch {}
+
     // 3. Broadcast perubahan ke semua tab/komponen
     if (broadcast) {
       window.dispatchEvent(new CustomEvent<SettingsState>(SETTINGS_EVENT, { detail: next }));
@@ -95,6 +112,22 @@ export function useSettings() {
       try {
         const stored = localStorage.getItem(SETTINGS_KEY);
         const next = normaliseSettings(stored ? JSON.parse(stored) : null);
+
+        // Ambil preferensi filter notifikasi dari server agar tersinkronisasi antar-perangkat
+        try {
+          const prefRes = await fetch("/api/notifications/preferences");
+          if (prefRes.ok) {
+            const prefData = await prefRes.json();
+            if (prefData?.preferences) {
+              const p = prefData.preferences;
+              if (typeof p.notificationEnabled === "boolean") next.notificationEnabled = p.notificationEnabled;
+              if (typeof p.notificationNewTransaction === "boolean") next.notificationNewTransaction = p.notificationNewTransaction;
+              if (typeof p.notificationStatusSuccess === "boolean") next.notificationStatusSuccess = p.notificationStatusSuccess;
+              if (typeof p.notificationStatusPending === "boolean") next.notificationStatusPending = p.notificationStatusPending;
+              if (typeof p.notificationStatusCancelled === "boolean") next.notificationStatusCancelled = p.notificationStatusCancelled;
+            }
+          }
+        } catch {}
 
         // Jika ada custom audio di IndexedDB tapi belum ada di state (misal karena disimpan lean di localStorage)
         if (!next.customNotificationAudio && (next.notificationSound === "custom" || next.customNotificationAudioName)) {

@@ -78,43 +78,47 @@ export async function POST(req: NextRequest) {
     let buffer: Buffer | null = null;
     let mimeType = "audio/mpeg";
     let fileName = "custom_sound.mp3";
-
     const contentType = req.headers.get("content-type") || "";
 
     if (contentType.includes("multipart/form-data")) {
-      const formData = await req.formData();
-      const file = formData.get("file") as File | null;
-      if (!file) {
-        return NextResponse.json({ error: "No file provided" }, { status: 400 });
-      }
-      const arrayBuffer = await file.arrayBuffer();
-      buffer = Buffer.from(arrayBuffer);
-      mimeType = file.type || "audio/mpeg";
-      fileName = file.name || "custom_sound.mp3";
-    } else {
-      const body = await req.json().catch(() => ({}));
-      const audioData = body.audio as string | undefined;
-      fileName = body.fileName || "custom_sound.mp3";
-
-      if (!audioData) {
-        return NextResponse.json({ error: "No audio data provided" }, { status: 400 });
-      }
-
-      if (audioData.startsWith("data:")) {
-        const matches = audioData.match(/^data:([a-zA-Z0-9/+-]+);base64,(.+)$/);
-        if (matches) {
-          mimeType = matches[1];
-          buffer = Buffer.from(matches[2], "base64");
-        } else {
-          return NextResponse.json({ error: "Invalid data URL format" }, { status: 400 });
+      try {
+        const formData = await req.formData();
+        const file = formData.get("file");
+        if (file && typeof file === "object" && "arrayBuffer" in file) {
+          const arrayBuffer = await (file as Blob).arrayBuffer();
+          buffer = Buffer.from(arrayBuffer);
+          mimeType = (file as any).type || "audio/mpeg";
+          fileName = (file as any).name || "custom_sound.mp3";
         }
-      } else {
-        buffer = Buffer.from(audioData, "base64");
+      } catch (formErr) {
+        console.warn("[api/notifications/sound] FormData parse warning:", formErr);
+      }
+    }
+    
+    if (!buffer) {
+      try {
+        const body = await req.json().catch(() => ({}));
+        const audioData = body.audio as string | undefined;
+        if (body.fileName) fileName = body.fileName;
+
+        if (audioData) {
+          if (audioData.startsWith("data:")) {
+            const matches = audioData.match(/^data:([a-zA-Z0-9/+-]+);base64,(.+)$/);
+            if (matches) {
+              mimeType = matches[1];
+              buffer = Buffer.from(matches[2], "base64");
+            }
+          } else {
+            buffer = Buffer.from(audioData, "base64");
+          }
+        }
+      } catch (jsonErr) {
+        console.warn("[api/notifications/sound] JSON body parse warning:", jsonErr);
       }
     }
 
     if (!buffer || buffer.length === 0) {
-      return NextResponse.json({ error: "Empty audio payload" }, { status: 400 });
+      return NextResponse.json({ error: "No valid audio payload provided" }, { status: 400 });
     }
 
     // Tulis ke disk
@@ -128,7 +132,7 @@ export async function POST(req: NextRequest) {
       size: buffer.length,
     });
   } catch (err: any) {
-    console.error("[api/notifications/sound POST]", err);
+    console.warn("[api/notifications/sound POST]", err?.message || err);
     return NextResponse.json({ error: String(err?.message || err) }, { status: 500 });
   }
 }

@@ -448,6 +448,27 @@ export function NotificationCenter() {
     };
   }, []);
 
+  // Dengarkan pesan dari Service Worker (misal saat push notification masuk di latar belakang)
+  useEffect(() => {
+    if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
+    const handleSwMessage = (event: MessageEvent) => {
+      if (event.data?.type === "PLAY_PUSH_NOTIFICATION_SOUND") {
+        const cur = settingsRef.current;
+        if (cur.soundAlert && cur.notificationSound !== "silent") {
+          const sound =
+            cur.notificationSound === "custom"
+              ? (cur.customNotificationAudio || event.data.soundUrl || "/api/notifications/sound")
+              : cur.customNotificationAudio;
+          void playNotificationSound(cur.notificationSound, cur.notificationVolume, sound).catch(() => {});
+        }
+      }
+    };
+    navigator.serviceWorker.addEventListener("message", handleSwMessage);
+    return () => {
+      navigator.serviceWorker.removeEventListener("message", handleSwMessage);
+    };
+  }, []);
+
   // Click-outside for desktop dropdown
   useEffect(() => {
     if (isMobile) return;
@@ -571,6 +592,7 @@ export function NotificationCenter() {
           body: notif.message,
           url: `/dashboard/transactions?edit=${encodeURIComponent(notif.transactionId || "")}`,
           transactionId: notif.transactionId,
+          sound: cur.notificationSound === "custom" ? (cur.customNotificationAudio || "/api/notifications/sound") : undefined,
         }),
       }).catch((err) => console.warn("[NotificationCenter] Web Push dispatch failed:", err));
 
@@ -639,6 +661,7 @@ export function NotificationCenter() {
                 body: item.message,
                 url: `/dashboard/transactions?edit=${encodeURIComponent(item.transactionId || "")}`,
                 transactionId: item.transactionId,
+                sound: cur.notificationSound === "custom" ? (cur.customNotificationAudio || "/api/notifications/sound") : undefined,
               }),
             }).catch((err) => console.warn("[NotificationCenter Polling] Web Push dispatch failed:", err));
           }

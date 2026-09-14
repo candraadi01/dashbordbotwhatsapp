@@ -128,8 +128,19 @@ export async function playNotificationSound(
     if (!audioSrc) {
       audioSrc = await getAudioFromStorage();
     }
+    // Jika belum ada di lokal, coba gunakan endpoint server
+    if (!audioSrc) {
+      audioSrc = "/api/notifications/sound";
+    }
 
-    if (audioSrc && audioSrc.startsWith("data:audio/")) {
+    const isValidSrc = Boolean(
+      audioSrc &&
+        (audioSrc.startsWith("data:audio/") ||
+          audioSrc.startsWith("/") ||
+          audioSrc.startsWith("http"))
+    );
+
+    if (isValidSrc && audioSrc) {
       // Metode A: Web Audio API (kecepatan 0ms & bebas lag media element)
       const context = getSharedAudioContext();
       if (context) {

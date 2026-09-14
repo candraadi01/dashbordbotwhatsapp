@@ -180,8 +180,9 @@ export function usePushNotification() {
   }, [isSupported]);
 
   // ── Kirim tes notifikasi Web Push ─────────────────────────────────────────────
-  const sendTestNotification = useCallback(async (): Promise<{ success: boolean; message?: string }> => {
+  const sendTestNotification = useCallback(async (options?: { soundUrl?: string }): Promise<{ success: boolean; message?: string }> => {
     try {
+      const soundUrl = options?.soundUrl || "/api/notifications/sound";
       const res = await fetch("/api/push/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -189,6 +190,7 @@ export function usePushNotification() {
           title: "🔔 Tes Notifikasi HP Berhasil!",
           body: "Web Push bekerja realtime di latar belakang HP Anda meskipun browser ditutup.",
           url: "/dashboard/transactions",
+          sound: soundUrl,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -200,7 +202,8 @@ export function usePushNotification() {
             body: "Web Push berhasil diterima di HP Anda.",
             icon: "/icons/icon-192.png",
             badge: "/icons/icon-192.png",
-            vibrate: [200, 100, 200],
+            sound: soundUrl,
+            vibrate: [300, 100, 300, 100, 300],
             tag: "candra-test-notif",
           } as any);
         });
@@ -226,11 +229,12 @@ export function usePushNotification() {
   }, []);
 
   // ── Tampilkan notifikasi lokal ────────────────────────────────────────────────
-  const sendNotification = useCallback((options: { title: string; body: string; tag?: string; data?: any }): boolean => {
+  const sendNotification = useCallback((options: { title: string; body: string; tag?: string; data?: any; sound?: string }): boolean => {
     if (typeof window === "undefined" || !("Notification" in window) || Notification.permission !== "granted") {
       return false;
     }
     try {
+      const soundUrl = options.sound || "/api/notifications/sound";
       if ("serviceWorker" in navigator) {
         navigator.serviceWorker.ready.then((reg) => {
           void reg.showNotification(options.title, {
@@ -239,7 +243,8 @@ export function usePushNotification() {
             badge: "/icons/icon-192.png",
             tag: options.tag,
             data: options.data,
-            vibrate: [200, 100, 200],
+            sound: soundUrl,
+            vibrate: [300, 100, 300, 100, 300],
           } as any);
         }).catch(() => {
           new Notification(options.title, { body: options.body, icon: "/icons/icon-192.png", tag: options.tag });

@@ -156,6 +156,12 @@ export async function POST(req: NextRequest) {
     }
 
     // 4. Kirim notifikasi native Web Push ke semua subscriber
+    // Catatan: Payload Web Push dibatasi maksimal 4096 byte, jadi selalu gunakan URL suara (/api/notifications/sound)
+    const soundUrl =
+      typeof body.sound === "string" && !body.sound.startsWith("data:")
+        ? body.sound
+        : "/api/notifications/sound";
+
     const payload = JSON.stringify({
       title,
       body: message,
@@ -163,6 +169,7 @@ export async function POST(req: NextRequest) {
       tag,
       icon: "/icons/icon-192.png",
       badge: "/icons/icon-192.png",
+      sound: soundUrl,
       timestamp: Date.now(),
     });
 

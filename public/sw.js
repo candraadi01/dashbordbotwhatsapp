@@ -9,6 +9,7 @@ self.addEventListener("push", (event) => {
     title: "CANDRA BOT",
     body: "Ada aktivitas pesanan baru masuk.",
     url: "/dashboard/transactions",
+    sound: "/api/notifications/sound",
   };
 
   if (event.data) {
@@ -19,16 +20,19 @@ self.addEventListener("push", (event) => {
     }
   }
 
+  const soundUrl = payload.sound || "/api/notifications/sound";
+
   const options = {
     body: payload.body,
     icon: payload.icon || "/icons/icon-192.png",
     badge: payload.badge || "/icons/icon-192.png",
     image: payload.image || undefined,
-    vibrate: [200, 100, 200],
+    vibrate: [300, 100, 300, 100, 300],
+    sound: soundUrl,
     tag: payload.tag || "candra-transaction",
     renotify: true,
     requireInteraction: false,
-    data: { url: payload.url || "/dashboard/transactions", timestamp: Date.now() },
+    data: { url: payload.url || "/dashboard/transactions", sound: soundUrl, timestamp: Date.now() },
     actions: [
       { action: "open", title: "Buka Dashboard" },
       { action: "dismiss", title: "Tutup" },
@@ -36,7 +40,23 @@ self.addEventListener("push", (event) => {
   };
 
   event.waitUntil(
-    self.registration.showNotification(payload.title, options)
+    (async () => {
+      // 1. Tampilkan notifikasi native di layar HP / OS
+      await self.registration.showNotification(payload.title, options);
+
+      // 2. Beritahu semua client window / tab terbuka agar memutar audio custom langsung
+      try {
+        const clientList = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+        for (const client of clientList) {
+          client.postMessage({
+            type: "PLAY_PUSH_NOTIFICATION_SOUND",
+            soundUrl: soundUrl,
+            title: payload.title,
+            body: payload.body,
+          });
+        }
+      } catch (_) {}
+    })()
   );
 });
 

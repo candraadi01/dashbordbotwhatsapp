@@ -101,7 +101,31 @@ export function useSettings() {
           const storedAudio = await getAudioFromStorage();
           if (storedAudio && active) {
             next.customNotificationAudio = storedAudio;
+          } else if (active) {
+            try {
+              const res = await fetch("/api/notifications/sound", { method: "HEAD" });
+              if (res.ok) {
+                const headerName = res.headers.get("X-Audio-Filename");
+                next.customNotificationAudio = "/api/notifications/sound";
+                if (headerName) {
+                  next.customNotificationAudioName = decodeURIComponent(headerName);
+                }
+              }
+            } catch {}
           }
+        } else if (!next.customNotificationAudio) {
+          // Cek apakah ada custom sound di server yang tersimpan dari perangkat lain (misal dari PC ke HP)
+          try {
+            const res = await fetch("/api/notifications/sound", { method: "HEAD" });
+            if (res.ok && active) {
+              const headerName = res.headers.get("X-Audio-Filename");
+              next.customNotificationAudio = "/api/notifications/sound";
+              next.customNotificationAudioName = headerName ? decodeURIComponent(headerName) : "Custom Sound Server";
+              if (next.notificationSound !== "silent") {
+                next.notificationSound = "custom";
+              }
+            }
+          } catch {}
         }
 
         if (active) {

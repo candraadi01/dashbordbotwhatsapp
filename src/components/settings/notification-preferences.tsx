@@ -1,6 +1,6 @@
 "use client";
 
-import React, { ChangeEvent, useRef, useState } from "react";
+import React, { ChangeEvent, useEffect, useRef, useState } from "react";
 import {
   BellRing,
   CheckCircle2,
@@ -139,7 +139,27 @@ export function NotificationPreferences() {
     }
   };
 
-  const handleAudioUpload = (event: ChangeEvent<HTMLInputElement>) => {
+  // Sinkronisasi file audio custom ke server agar perangkat HP dan Web Push dapat mengakses file yang sama
+  useEffect(() => {
+    if (settings.customNotificationAudio && settings.customNotificationAudio.startsWith("data:")) {
+      fetch("/api/notifications/sound", { method: "HEAD" })
+        .then((res) => {
+          if (!res.ok) {
+            return fetch("/api/notifications/sound", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                audio: settings.customNotificationAudio,
+                fileName: settings.customNotificationAudioName || "custom_sound.mp3",
+              }),
+            });
+          }
+        })
+        .catch(() => {});
+    }
+  }, [settings.customNotificationAudio, settings.customNotificationAudioName]);
+
+  const handleAudioUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
@@ -152,6 +172,18 @@ export function NotificationPreferences() {
     if (file.size > MAX_AUDIO_BYTES) {
       setMessage({ type: "error", text: "Ukuran audio maksimal 1,5 MB agar dashboard tetap ringan." });
       return;
+    }
+
+    // Upload audio ke server agar HP dan Web Push bisa membunyikan nada custom yang sama
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      await fetch("/api/notifications/sound", {
+        method: "POST",
+        body: formData,
+      });
+    } catch (e) {
+      console.warn("[handleAudioUpload] Server upload error:", e);
     }
 
     const reader = new FileReader();
@@ -177,6 +209,7 @@ export function NotificationPreferences() {
   };
 
   const removeCustomAudio = () => {
+    fetch("/api/notifications/sound", { method: "DELETE" }).catch(() => {});
     saveAllSettings({
       ...settings,
       customNotificationAudio: null,
@@ -264,7 +297,15 @@ export function NotificationPreferences() {
                 onClick={async () => {
                   setTestingPush(true);
                   setMessage(null);
-                  const res = await sendTestNotification();
+                  // Bunyikan langsung nada custom / preset di perangkat ini
+                  void playNotificationSound(
+                    settings.notificationSound,
+                    settings.notificationVolume,
+                    settings.customNotificationAudio || "/api/notifications/sound"
+                  );
+                  const res = await sendTestNotification({
+                    soundUrl: "/api/notifications/sound",
+                  });
                   setTestingPush(false);
                   if (res.success) {
                     setMessage({
@@ -603,7 +644,15 @@ export function NotificationPreferences() {
                 onClick={async () => {
                   setTestingPush(true);
                   setMessage(null);
-                  const res = await sendTestNotification();
+                  // Bunyikan langsung nada custom / preset di perangkat ini
+                  void playNotificationSound(
+                    settings.notificationSound,
+                    settings.notificationVolume,
+                    settings.customNotificationAudio || "/api/notifications/sound"
+                  );
+                  const res = await sendTestNotification({
+                    soundUrl: "/api/notifications/sound",
+                  });
                   setTestingPush(false);
                   if (res.success) {
                     setMessage({

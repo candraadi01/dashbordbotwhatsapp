@@ -11,6 +11,7 @@ import {
   DollarSign,
   LayoutDashboard,
   LogOut,
+  MessageSquareText,
   Package,
   PieChart,
   Receipt,
@@ -26,7 +27,7 @@ export const dashboardNavigation = [
   { name: "Transactions", href: "/dashboard/transactions", icon: Receipt },
   { name: "Products", href: "/dashboard/products", icon: Package },
   { name: "Reports", href: "/dashboard/reports", icon: PieChart },
-  { name: "Finance", href: "/dashboard/finance", icon: DollarSign },
+  { name: "Pesan Bot & QRIS", href: "/dashboard/finance", icon: MessageSquareText },
   { name: "Monitoring", href: "/dashboard/monitoring", icon: Activity },
   { name: "Settings", href: "/dashboard/settings", icon: Settings },
 ];
@@ -35,7 +36,7 @@ export function getVisibleNavigation(role: UserRole | null) {
   return dashboardNavigation.filter((item) => {
     if (
       role === "STAFF" &&
-      ["Reports", "Settings", "Finance", "Products"].includes(item.name)
+      ["Reports", "Settings", "Finance", "Pesan Bot & QRIS", "Products"].includes(item.name)
     ) {
       return false;
     }

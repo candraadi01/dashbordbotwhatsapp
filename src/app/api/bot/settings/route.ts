@@ -1,0 +1,116 @@
+import { NextRequest, NextResponse } from "next/server";
+import fs from "fs";
+import path from "path";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const DATA_DIR = path.join(process.cwd(), "data");
+const SETTINGS_FILE = path.join(DATA_DIR, "bot_settings.json");
+
+const BOT_PANEL_SETTINGS = path.join("D:", "BOT WHSATAPP SUPABASE", "BOT CANDRA", "BOT PANEL", "database", "bot_settings.json");
+const BOT_PANEL_BACKUP_SETTINGS = path.join("D:", "BOT WHSATAPP SUPABASE", "BOT CANDRA", "BOT PANEL BACKUP", "database", "bot_settings.json");
+
+export interface BotSettings {
+  statusMessages: {
+    pending: string;
+    success: string;
+    cancelled: string;
+  };
+  payment: {
+    greetingTemplate: string;
+    dana: string;
+    bri: string;
+    ewallet: string;
+    accountName: string;
+    footerNotes: string;
+    qrisImageUrl: string;
+  };
+  updatedAt?: number;
+}
+
+const defaultBotSettings: BotSettings = {
+  statusMessages: {
+    pending: "Pesanan Anda sedang ditinjau kembali oleh admin.",
+    success: "Pembayaran Anda sudah dikonfirmasi. Pesanan akan segera diproses.",
+    cancelled: "Pesanan Anda dibatalkan. Silakan hubungi admin jika memerlukan bantuan.",
+  },
+  payment: {
+    greetingTemplate: "Hello Kak *{customer}* 👋\n\ntotalnya jadi : *{total}*{discount}\nsilahkan lakukan pembayaran ya",
+    dana: "081455124049",
+    bri: "068001007528536",
+    ewallet: "082338184217",
+    accountName: "candra adi kusuma",
+    footerNotes: "⚠️ BCA BISA SCAN QRIS 🔮\n🔔 Kirimkan bukti pembayaran untuk aktivasi paket Anda. Disini 📌Terima kasih!",
+    qrisImageUrl: "/api/bot/qris",
+  },
+  updatedAt: Date.now(),
+};
+
+function readBotSettings(): BotSettings {
+  try {
+    if (fs.existsSync(SETTINGS_FILE)) {
+      const raw = fs.readFileSync(SETTINGS_FILE, "utf-8");
+      return { ...defaultBotSettings, ...JSON.parse(raw) };
+    }
+  } catch (err) {
+    console.warn("[bot/settings GET]", err);
+  }
+  return defaultBotSettings;
+}
+
+function syncToFile(filePath: string, content: string) {
+  try {
+    const dir = path.dirname(filePath);
+    if (fs.existsSync(dir)) {
+      fs.writeFileSync(filePath, content, "utf-8");
+    }
+  } catch (_) {}
+}
+
+export async function GET() {
+  const settings = readBotSettings();
+  return NextResponse.json({ ok: true, success: true, settings, data: settings });
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json().catch(() => ({}));
+    const current = readBotSettings();
+
+    const updated: BotSettings = {
+      statusMessages: {
+        pending: typeof body.statusMessages?.pending === "string" ? body.statusMessages.pending : current.statusMessages.pending,
+        success: typeof body.statusMessages?.success === "string" ? body.statusMessages.success : current.statusMessages.success,
+        cancelled: typeof body.statusMessages?.cancelled === "string" ? body.statusMessages.cancelled : current.statusMessages.cancelled,
+      },
+      payment: {
+        greetingTemplate: typeof body.payment?.greetingTemplate === "string" ? body.payment.greetingTemplate : current.payment.greetingTemplate,
+        dana: typeof body.payment?.dana === "string" ? body.payment.dana : current.payment.dana,
+        bri: typeof body.payment?.bri === "string" ? body.payment.bri : current.payment.bri,
+        ewallet: typeof body.payment?.ewallet === "string" ? body.payment.ewallet : current.payment.ewallet,
+        accountName: typeof body.payment?.accountName === "string" ? body.payment.accountName : current.payment.accountName,
+        footerNotes: typeof body.payment?.footerNotes === "string" ? body.payment.footerNotes : current.payment.footerNotes,
+        qrisImageUrl: current.payment.qrisImageUrl,
+      },
+      updatedAt: Date.now(),
+    };
+
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+
+    const jsonStr = JSON.stringify(updated, null, 2);
+    fs.writeFileSync(SETTINGS_FILE, jsonStr, "utf-8");
+
+    // Sinkronkan langsung ke folder database lokal & folder bot panel
+    syncToFile(path.join(process.cwd(), "database", "bot_settings.json"), jsonStr);
+    syncToFile(BOT_PANEL_SETTINGS, jsonStr);
+    syncToFile(BOT_PANEL_BACKUP_SETTINGS, jsonStr);
+
+    return NextResponse.json({ ok: true, success: true, settings: updated, data: updated });
+  } catch (err: any) {
+    console.warn("[bot/settings POST]", err?.message || err);
+    return NextResponse.json({ error: String(err?.message || err) }, { status: 500 });
+  }
+}

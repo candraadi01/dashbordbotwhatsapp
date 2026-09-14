@@ -1,0 +1,17 @@
+{
+  "statusMessages": {
+    "pending": "Halo, Pesanan kamu dengan ID *{id}* untuk produk *{product}* Kategori *{category}* saat ini berstatus *PENDING*. Mohon menunggu konfirmasi admin ya!",
+    "success": "Halo, Pesanan kamu dengan ID *{id}* untuk produk *{product}* Kategori *{category}* saat ini berstatus *BERHASIL*. Terima kasih telah berbelanja!",
+    "cancelled": "Halo, Pesanan kamu dengan ID *{id}* untuk produk *{product}* Kategori *{category}* saat ini berstatus *DIBATALKAN*. Silakan hubungi admin jika ada kendala."
+  },
+  "payment": {
+    "greetingTemplate": "Hello Kak *{customer}* 👋\n\ntotalnya jadi : *{total}*{discount}\nsilahkan lakukan pembayaran ya",
+    "dana": "081455124049",
+    "bri": "068001007528536",
+    "ewallet": "082338184217",
+    "accountName": "candra adi kusuma",
+    "footerNotes": "⚠️ BCA BISA SCAN QRIS 🔮\n🔔 Kirimkan bukti pembayaran untuk aktivasi paket Anda. Disini 📌Terima kasih!",
+    "qrisImageUrl": "/api/bot/qris"
+  },
+  "updatedAt": 1789370000000
+}

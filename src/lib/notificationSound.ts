@@ -111,15 +111,24 @@ export function clearAudioBufferCache() {
   cachedAudioBuffer = null;
 }
 
+let lastSoundPlayedAt = 0;
+
 /**
  * Putar suara notifikasi baik preset maupun custom audio
  */
 export async function playNotificationSound(
   preset: NotificationSoundPreset,
   volume = 65,
-  customAudio?: string | null
+  customAudio?: string | null,
+  force = false
 ): Promise<void> {
   if (typeof window === "undefined" || preset === "silent" || volume <= 0) return;
+  const now = Date.now();
+  if (!force && now - lastSoundPlayedAt < 1200) {
+    return; // Cegah suara dobel / tumpang tindih dalam rentang 1,2 detik
+  }
+  lastSoundPlayedAt = now;
+
   const volumeMultiplier = Math.min(1, Math.max(0, volume / 100));
 
   // 1. Jika preset CUSTOM, coba putar audio custom

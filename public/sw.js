@@ -41,12 +41,24 @@ self.addEventListener("push", (event) => {
 
   event.waitUntil(
     (async () => {
+      let hasOpenClient = false;
+      let clientList = [];
+      try {
+        clientList = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+        hasOpenClient = Boolean(clientList && clientList.length > 0);
+      } catch (_) {}
+
+      // PENTING UNTUK MENCEGAH SUARA DOBEL:
+      // Jika web/apk sedang terbuka, set silent: true pada notifikasi native OS
+      // agar speaker HP tidak membunyikan nada default OS bersamaan dengan Web Audio custom.
+      // Jika web/apk sedang ditutup, biarkan silent: false agar sistem HP tetap membunyikan nada & getar.
+      options.silent = hasOpenClient;
+
       // 1. Tampilkan notifikasi native di layar HP / OS
       await self.registration.showNotification(payload.title, options);
 
-      // 2. Beritahu semua client window / tab terbuka agar memutar audio custom langsung
-      try {
-        const clientList = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      // 2. Jika ada web/apk terbuka, kirim sinyal untuk memutar audio custom
+      if (hasOpenClient) {
         for (const client of clientList) {
           client.postMessage({
             type: "PLAY_PUSH_NOTIFICATION_SOUND",
@@ -55,7 +67,7 @@ self.addEventListener("push", (event) => {
             body: payload.body,
           });
         }
-      } catch (_) {}
+      }
     })()
   );
 });

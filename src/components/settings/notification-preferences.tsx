@@ -5,6 +5,7 @@ import {
   BellRing,
   CheckCircle2,
   Clock3,
+  Download,
   Music2,
   Play,
   ShoppingCart,
@@ -491,6 +492,15 @@ export function NotificationPreferences() {
                       <Play className="h-3.5 w-3.5" />
                       Dengar
                     </button>
+                    <a
+                      href={settings.customNotificationAudio || "/api/notifications/sound"}
+                      download={settings.customNotificationAudioName || "candra-notifikasi.mp3"}
+                      className="min-h-10 flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 transition hover:bg-slate-50 active:scale-[.98]"
+                      title="Unduh file suara ke HP agar dapat disetel pada saluran notifikasi sistem HP"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      Unduh ke HP
+                    </a>
                   </>
                 )}
 
@@ -519,6 +529,23 @@ export function NotificationPreferences() {
                 )}
               </div>
             </div>
+
+            {settings.customNotificationAudioName && (
+              <div className="mt-3.5 rounded-xl border border-indigo-100 bg-indigo-50/60 p-3 text-xs text-slate-700 space-y-1.5">
+                <div className="flex items-center gap-2 font-bold text-indigo-950">
+                  <Smartphone className="h-4 w-4 text-indigo-600 shrink-0" />
+                  <span>Agar Suara Custom Ini Berbunyi Saat Layar HP Mati / Web Ditutup:</span>
+                </div>
+                <p className="text-[11px] leading-relaxed text-slate-600">
+                  Saat web/apk sedang dibuka, nada custom ini langsung berbunyi otomatis tanpa suara dobel bawaan HP. Jika HP sedang terkunci/layar mati, sistem Android mengatur suara melalui <b>Saluran Notifikasi HP</b>:
+                </p>
+                <ol className="list-decimal list-inside text-[11px] space-y-1 font-medium text-slate-700 pl-0.5">
+                  <li>Klik tombol <b>Unduh ke HP</b> di atas.</li>
+                  <li>Di HP Anda, buka <b>Pengaturan HP → Aplikasi → CANDRA BOT (atau Chrome) → Notifikasi</b>.</li>
+                  <li>Pilih <b>Kategori / Saluran Notifikasi</b> → ketuk <b>Suara</b> → pilih file audio yang baru diunduh.</li>
+                </ol>
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col gap-3 rounded-2xl bg-slate-50 p-4 sm:flex-row sm:items-center">

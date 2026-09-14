@@ -188,22 +188,21 @@ export function usePushNotification() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: "🔔 Tes Notifikasi HP Berhasil!",
-          body: "Web Push bekerja realtime di latar belakang HP Anda meskipun browser ditutup.",
+          body: "Web Push bekerja realtime di layar HP Anda.",
           url: "/dashboard/transactions",
           sound: soundUrl,
         }),
       });
       const data = await res.json().catch(() => ({}));
 
-      // Tampilkan juga banner di registration lokal sebagai feedback langsung
-      if ("serviceWorker" in navigator) {
+      // Jika belum ada subscriber push sama sekali, tampilkan notifikasi lokal fallback
+      if (data.sent === 0 && "serviceWorker" in navigator) {
         navigator.serviceWorker.ready.then((reg) => {
           void reg.showNotification("🔔 Tes Notifikasi HP Berhasil!", {
-            body: "Web Push berhasil diterima di HP Anda.",
+            body: "Web Push belum terdaftar. Notifikasi lokal berhasil diuji.",
             icon: "/icons/icon-192.png",
             badge: "/icons/icon-192.png",
-            sound: soundUrl,
-            vibrate: [300, 100, 300, 100, 300],
+            silent: true,
             tag: "candra-test-notif",
           } as any);
         });
@@ -235,6 +234,8 @@ export function usePushNotification() {
     }
     try {
       const soundUrl = options.sound || "/api/notifications/sound";
+      // silent: true wajib agar sistem OS/Android tidak membunyikan nada default OS
+      // bersamaan dengan Web Audio API custom
       if ("serviceWorker" in navigator) {
         navigator.serviceWorker.ready.then((reg) => {
           void reg.showNotification(options.title, {
@@ -244,13 +245,14 @@ export function usePushNotification() {
             tag: options.tag,
             data: options.data,
             sound: soundUrl,
+            silent: true,
             vibrate: [300, 100, 300, 100, 300],
           } as any);
         }).catch(() => {
-          new Notification(options.title, { body: options.body, icon: "/icons/icon-192.png", tag: options.tag });
+          new Notification(options.title, { body: options.body, icon: "/icons/icon-192.png", tag: options.tag, silent: true } as any);
         });
       } else {
-        new Notification(options.title, { body: options.body, icon: "/icons/icon-192.png", tag: options.tag });
+        new Notification(options.title, { body: options.body, icon: "/icons/icon-192.png", tag: options.tag, silent: true } as any);
       }
       return true;
     } catch {
